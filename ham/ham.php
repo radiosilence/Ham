@@ -12,14 +12,18 @@ class Ham {
             'request_methods' => $request_methods
         );
     }
+
     /**
-     * Makes sure the routes are compiled then scans through them
-     * and calls whichever one is approprate.
+     * Calls route and outputs it to STDOUT
      */
     public function run() {
         echo $this->_route();
     }
 
+    /**
+     * Makes sure the routes are compiled then scans through them
+     * and calls whichever one is approprate.
+     */
     protected function _route() {
         $uri = str_replace($this->config['APP_URI'], '', $_SERVER['REQUEST_URI']);
         $compiled = $this->_get_compiled_routes();
@@ -28,6 +32,8 @@ class Ham {
                 $args[0] = $this;
                 return call_user_func_array($route['callback'], $args);
             }
+            var_dump($route['compiled'], $uri);
+
         }
         return abort(404);
     }
@@ -51,16 +57,16 @@ class Ham {
      * Takes a route in simple syntax and makes it into a regular expression.
      */
     protected function _compile_route($uri) {
-        $uri = str_replace('/', '\/', preg_quote($uri));
+        $route = str_replace('/', '\/', preg_quote($uri));
         $types = array(
             '<int>' => '(\d+)',
             '<string>' => '([a-zA-Z0-9\-_]+)',
             '<path>' => '([a-zA-Z0-9\-_\/])'
         );
         foreach($types as $k => $v) {
-            $route = '/^' . str_replace(preg_quote($k), $v, $uri) . '$/';
+            $route = str_replace(preg_quote($k), $v, $route);
         }
-        return $route;
+        return  '/^' . $route . '$/';
     }
     /**
      * Returns the contents of a template, populated with the data given to it.
