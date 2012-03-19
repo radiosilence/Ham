@@ -1,4 +1,4 @@
-ham
+Ham
 ===
 
 PHP Microframework for use with whatever you like. Basically just a fast router
