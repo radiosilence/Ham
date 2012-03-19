@@ -10,7 +10,7 @@ class HamCache {
 
     }
 
-    public static function set($key, $value, $ttl=10) {
+    public static function set($key, $value, $ttl=1) {
         return static::$_cache->set($key->value->$ttl);
     }
     public static function get($key) {
@@ -18,18 +18,24 @@ class HamCache {
     }
 }
 
-class XCache implements HamCache {
+class XCache implements HamCompatCache {
     public function get($key) {
         return xcache_get($key);
     }
-    public function set($key) {
+    public function set($key, $value, $ttl) {
 
     }
+}
+
+interface HamCompatCache {
+    public function set($key, $value, $ttl);
+    public function get($key);
 }
 
 class Ham {
     private $_compiled_routes;
     public $routes;
+    public $config;
     public $template_paths = array('./templates/');
     public function route($uri, $callback, $request_methods=array('GET')) {
         $this->routes[] = array(
@@ -43,9 +49,22 @@ class Ham {
      * and calls whichever one is approprate.
      */
     public function run() {
-
+        $compiled = $this->_get_compiled_routes();
     }
 
+    protected function _get_compiled_routes() {
+        $_k = 'compiled_routes';
+        $compiled = HamCache::get($_k);
+        if($compiled)
+            return $compiled;
+
+        $compiled = array();
+        foreach($this->routes as $route) {
+            $route['compiled'] = $this->_compile_route($route['uri']);
+            $compiled[] = $route;
+        }
+        HamCache::set($_k, $compiled);
+    }
     /**
      * Returns the contents of a template, populated with the data given to it.
      */
@@ -61,7 +80,11 @@ class Ham {
 
     public function config_from_file($filename) {
         require($filename);
-        var_dump(get_defined_vars());
+        $conf = get_defined_vars();
+        unset($conf['filename']);
+        foreach($conf as $k => $v) {
+            $this->config[$k] = $v;
+        }
     }
 
     public function config_from_env($var) {
@@ -69,14 +92,14 @@ class Ham {
     }
 
     protected function _get_template_path($name) {
-        $k = "template_path:{$name}";
-        $path = HamCache::get($k)
+        $_k = "template_path:{$name}";
+        $path = HamCache::get($_k);
         if($path)
             return $path;
         foreach($this->template_paths as $dir) {
             $path = $dir . $name . '.php';
             if(file_exists($path)) {
-                HamCache::set($k, $path);
+                HamCache::set($_k, $path);
                 return $name;
             }
         }
