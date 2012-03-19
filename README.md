@@ -31,7 +31,6 @@ More Interesting Example
     $app = new Ham();
     $app->config_from_file('settings.php');
 
-
     $app->route('/pork', function($app) {
         return "Delicious pork.";
     });
