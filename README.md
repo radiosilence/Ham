@@ -2,7 +2,9 @@ Ham
 ===
 
 PHP Microframework for use with whatever you like. Basically just a fast router
-with nice syntax, and a cache singleton.
+with nice syntax, and a cache singleton. Will add more things as I go, like
+perhaps an extension system, autoloader and some other stuff to make developing
+in PHP less irritating than it currently is.
 
 Inspired entirely by Flask.
 
