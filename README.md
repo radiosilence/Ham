@@ -1,9 +1,10 @@
 ham
 ===
 
-PHP Microframework for use with Doctrine. Basically just a router, in all fairness. But it's a nice router!
+PHP Microframework for use with whatever you like. Basically just a fast router
+with nice syntax, and a cache singleton.
 
-Inspired by Flask.
+Inspired entirely by Flask.
 
 
 Hello World
