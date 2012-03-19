@@ -32,8 +32,6 @@ class Ham {
                 $args[0] = $this;
                 return call_user_func_array($route['callback'], $args);
             }
-            var_dump($route['compiled'], $uri);
-
         }
         return abort(404);
     }
@@ -68,6 +66,7 @@ class Ham {
         }
         return  '/^' . $route . '$/';
     }
+
     /**
      * Returns the contents of a template, populated with the data given to it.
      */
@@ -81,6 +80,9 @@ class Ham {
         return ob_get_clean();
     }
 
+    /**
+     * Configure an application object from a file.
+     */
     public function config_from_file($filename) {
         require($filename);
         $conf = get_defined_vars();
@@ -118,7 +120,6 @@ function abort($code, $message='') {
 
 class XCache implements HamCompatibleCache {
     public function get($key) {
-        return False;
         return xcache_get($key);
     }
     public function set($key, $value, $ttl) {
