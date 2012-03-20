@@ -113,7 +113,7 @@ class Ham {
     protected function _compile_route($uri, $wildcard) {
         $route = $this->_escape_route_uri(rtrim($uri, '/'));
         $types = array(
-            '<int>' => '(\d+)',
+            '<int>' => '([0-9\-]+)',
             '<string>' => '([a-zA-Z0-9\-_]+)',
             '<path>' => '([a-zA-Z0-9\-_\/])'
         );
