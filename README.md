@@ -61,7 +61,7 @@ Hello World
 
     require '../ham/ham.php';
 
-    $app = new Ham();
+    $app = new Ham('example');
 
     $app->route('/', function($app) {
         return 'Hello, world!';
@@ -75,7 +75,7 @@ More Interesting Example
 
     require '../ham/ham.php';
 
-    $app = new Ham();
+    $app = new Ham('example');
     $app->config_from_file('settings.php');
 
     $app->route('/pork', function($app) {
@@ -99,7 +99,7 @@ Multiple apps mounted on routes!
     require '../ham/ham.php';
 
     // Create our beans sub-app.
-    $beans = new Ham();
+    $beans = new Ham('beans');
     $beans->route('/', function($app) {
         return "Beans home.";
     });
@@ -107,7 +107,7 @@ Multiple apps mounted on routes!
         return "Yum!";
     });
 
-    $app = new Ham();
+    $app = new Ham('example');
     $app->route('/', function($app) {
         return "App home.";
     });
