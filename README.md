@@ -93,6 +93,41 @@ More Interesting Example
     $app->run();
 
 
+Multiple apps mounted on routes!
+--------------------------------
+
+    require '../ham/ham.php';
+
+    // Create our beans sub-app.
+    $beans = new Ham();
+    $beans->route('/', function($app) {
+        return "Beans home.";
+    });
+    $beans->route('/baked', function($app) {
+        return "Yum!";
+    });
+
+    $app = new Ham();
+    $app->route('/', function($app) {
+        return "App home.";
+    });
+    $app->route('/beans', $beans);
+    $app->run();
+
+
+### /beans/
+
+Beans home.
+
+### /beans/baked
+
+Yum!
+
+### /
+
+App home.
+
+
 Have a gander at the example application for more details.
 
 
