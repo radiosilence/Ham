@@ -9,6 +9,11 @@ in PHP less irritating than it currently is.
 Routes are converted to regex and cached so this process does not need to
 happen every request.
 
+PHP presents an interesting challenge because due to it's architecture,
+everything has to be re-done each request, which is why I'm leveraging caching
+with tiny TTLs to share the results of operations like route resolution
+between requests.
+
 Note: PHP already has many of the features that many microframeworks have, such
 as session handling, cookies, and templating. An aim of this project is to
 encourage the use of native functionality where possible or where it is good,
@@ -76,3 +81,21 @@ More Interesting Example
 
 
 Have a gander at the example application for more details.
+
+
+To-Dos
+------
+
+* Sub-application mounting (ala Flask "Blueprints").
+* Sanitisation solution.
+* CSRF tokens
+* Extension API
+
+
+Extension Ideas
+---------------
+
+* Form generation (3rd-party? Phorms)
+* ORM integration (most likely Doctrine)
+* Auth module (using scrypt or something)
+* Admin extension
