@@ -4,7 +4,13 @@ class Ham {
     private $_compiled_routes;
     public $routes;
     public $config;
+    public $cache;
     public $template_paths = array('./templates/');
+
+    public function __construct() {
+        $this->cache = Cache::create();
+    }
+
     public function route($uri, $callback, $request_methods=array('GET')) {
         $this->routes[] = array(
             'uri' => $uri,
@@ -28,10 +34,10 @@ class Ham {
         $uri = parse_url(str_replace($this->config['APP_URI'], '', $_SERVER['REQUEST_URI']));
         $path = $uri['path'];
         $_k = "found_uri:{$path}";
-        $found = Cache::get($_k);
+        $found = $this->cache->get($_k);
         if(!$found) {
             $found = $this->_find_route($path);
-            Cache::set($_k, $found, 10);
+            $this->cache->set($_k, $found, 10);
         }
         $found['args'][0] = $this;
         return call_user_func_array($found['callback'], $found['args']);
@@ -53,7 +59,7 @@ class Ham {
 
     protected function _get_compiled_routes() {
         $_k = 'compiled_routes';
-        $compiled = Cache::get($_k);
+        $compiled = $this->cache->get($_k);
         if($compiled)
             return $compiled;
 
@@ -62,7 +68,7 @@ class Ham {
             $route['compiled'] = $this->_compile_route($route['uri']);
             $compiled[] = $route;
         }
-        Cache::set($_k, $compiled);
+        $this->cache->set($_k, $compiled);
         return $compiled;
     }
 
@@ -113,13 +119,13 @@ class Ham {
 
     protected function _get_template_path($name) {
         $_k = "template_path:{$name}";
-        $path = Cache::get($_k);
+        $path = $this->cache->get($_k);
         if($path)
             return $path;
         foreach($this->template_paths as $dir) {
             $path = $dir . $name;
             if(file_exists($path)) {
-                Cache::set($_k, $path);
+                $this->cache->set($_k, $path);
                 return $path;
             }
         }
@@ -137,7 +143,7 @@ class XCache implements HamCompatibleCache {
     public function get($key) {
         return xcache_get($key);
     }
-    public function set($key, $value, $ttl) {
+    public function set($key, $value, $ttl=1) {
         return xcache_set($key, $value, $ttl);
     }
     public function inc($key, $interval=1) {
@@ -154,7 +160,7 @@ class APC implements HamCompatibleCache {
             return False;
         return apc_fetch($key);
     }
-    public function set($key, $value, $ttl) {
+    public function set($key, $value, $ttl=1) {
 
         return apc_store($key, $value, $ttl);
     }
@@ -167,7 +173,7 @@ class APC implements HamCompatibleCache {
 }
 
 interface HamCompatibleCache {
-    public function set($key, $value, $ttl);
+    public function set($key, $value, $ttl=1);
     public function get($key);
     public function inc($key, $interval=1);
     public function dec($key, $interval=1);
@@ -177,29 +183,14 @@ interface HamCompatibleCache {
 class Cache {
     private static $_cache;
     /**
-     * Making sure we have a cache loaded (APC or XCache), so we can provide
-     * it as a singleton.
+     * Returning a cache object, be it XCache or APC.
      */
-    public static function init() {
+    public static function create() {
         if(function_exists('xcache_set')) {
             static::$_cache = new XCache();
         } else if(function_exists('apc_add')) {
             static::$_cache = new APC();
         }
-    }
-
-    public static function set($key, $value, $ttl=1) {
-        return static::$_cache->set($key, $value, $ttl);
-    }
-    public static function get($key) {
-        return static::$_cache->get($key);
-    }
-    public static function inc($key, $interval=1) {
-        return static::$_cache->inc($key, $interval);
-    }
-    public static function dec($key, $interval=1) {
-        return static::$_cache->dec($key, $interval);
+        return static::$_cache;
     }
 }
-
-Cache::init();
