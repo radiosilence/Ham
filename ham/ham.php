@@ -188,6 +188,7 @@ class Ham {
 }
 
 function abort($code, $message='') {
+	header("Status: {$code}", False, $code);
     return "<h1>{$code}</h1><p>{$message}</p>";
 }
 
