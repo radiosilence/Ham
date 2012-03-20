@@ -17,7 +17,7 @@ class Ham {
     public function __construct($name, $cache=False) {
         $this->name = $name;
         if(!$cache) {
-            $cache = CacheFactory::create($this);
+            $cache = create_cache($this);
         }
         $this->cache = $cache;
     }
@@ -262,20 +262,15 @@ abstract class HamCache {
     abstract public function dec($key, $interval=1);
 }
 
-
-class CacheFactory {
-    private static $_cache;
-    /**
-     * Returning a cache object, be it XCache or APC.
-     */
-    public static function create($app, $dummy=False) {
-        if(function_exists('xcache_set') && !$dummy) {
-            static::$_cache = new XCache($app);
-        } else if(function_exists('apc_fetch') && !$dummy) {
-            static::$_cache = new APC($app);
-        } else {
-            static::$_cache = new Dummy($app);
-        }
-        return static::$_cache;
+/**
+ * Cache factory, be it XCache or APC.
+ */
+function create_cache($app, $dummy=False) {
+    if(function_exists('xcache_set') && !$dummy) {
+        return new XCache($app);
+    } else if(function_exists('apc_fetch') && !$dummy) {
+        return new APC($app);
+    } else {
+        return new Dummy($app);
     }
 }
