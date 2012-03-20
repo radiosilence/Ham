@@ -9,6 +9,25 @@ in PHP less irritating than it currently is.
 Routes are converted to regex and cached so this process does not need to
 happen every request.
 
+Goals
+-----
+
+ * Make pretty much anything I/O related cached with XCache/APC
+(whichever is installed) in order to prevent excessive disk usage or path 
+searching on lots of requests.
+ * Provide a succinct syntax that means less magic and less code to read
+ through and learn, without compromising speed or code length, by using native
+ PHP methods and features.
+ * Promote a simple, flat way of building applications that don't need
+ massive levels of abstraction.
+ * Encourage use of excellent third-party libraries such as Doctrine to prevent
+ developers writing convoluted, unmaintainable code that people like me have to
+ pick up and spend hours poring over just to get an idea of what on earth is
+ going on.
+ * Define and document development patterns that allow for new developers to
+ get up to speed quickly and write new code that isn't hacky.
+
+
 Inspired entirely by Flask.
 
 
