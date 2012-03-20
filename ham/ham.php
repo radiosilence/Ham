@@ -47,7 +47,7 @@ class Ham {
     /**
      * Invoke method allows the application to be mounted as a closure.
      */
-    public function __invoke($app) {
+    public function __invoke($app=False) {
         $this->parent = $app;
         return $this->_route();
     }
