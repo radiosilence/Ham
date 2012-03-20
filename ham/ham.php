@@ -12,19 +12,31 @@ class Ham {
     }
 
     public function route($uri, $callback, $request_methods=array('GET')) {
+        if($this === $callback) {
+            return False;
+        }
+        $wildcard = False;
+        if($callback instanceof Ham) {
+            $callback->prefix = $uri;
+            $wildcard = True;
+        }
+
         $this->routes[] = array(
             'uri' => $uri,
             'callback' => $callback,
-            'request_methods' => $request_methods
+            'request_methods' => $request_methods,
+            'wildcard' => $wildcard
         );
     }
 
     /**
      * Calls route and outputs it to STDOUT
      */
-    public function run($echo=True) {
-        if($echo)
-            echo $this->_route();
+    public function run() {
+        echo $this->_route();
+    }
+
+    public function __invoke($app) {
         return $this->_route();
     }
 
@@ -41,6 +53,9 @@ class Ham {
             $found = $this->_find_route($path);
             $this->cache->set($_k, $found, 10);
         }
+        if(!$found) {
+            return abort(404);
+        }
         $found['args'][0] = $this;
         return call_user_func_array($found['callback'], $found['args']);
     }
@@ -56,7 +71,7 @@ class Ham {
                 return $found;
             }
         }
-        return abort(404);
+        return False;
     }
 
     protected function _get_compiled_routes() {
@@ -67,7 +82,7 @@ class Ham {
 
         $compiled = array();
         foreach($this->routes as $route) {
-            $route['compiled'] = $this->_compile_route($route['uri']);
+            $route['compiled'] = $this->_compile_route($route['uri'], $route['wildcard']);
             $compiled[] = $route;
         }
         $this->cache->set($_k, $compiled);
@@ -77,19 +92,27 @@ class Ham {
     /**
      * Takes a route in simple syntax and makes it into a regular expression.
      */
-    protected function _compile_route($uri) {
-        $route = str_replace('/', '\/', preg_quote($uri));
+    protected function _compile_route($uri, $wildcard) {
+        $route = $this->_escape_route_uri(rtrim($uri, '/'));
         $types = array(
             '<int>' => '(\d+)',
             '<string>' => '([a-zA-Z0-9\-_]+)',
             '<path>' => '([a-zA-Z0-9\-_\/])'
         );
         foreach($types as $k => $v) {
-            $route = str_replace(preg_quote($k), $v, $route);
+            $route =  str_replace(preg_quote($k), $v, $route);
         }
-        return  '/^' . $route . '$/';
+        if($wildcard)
+            $wc = '(.*)?';
+        else
+            $wc = '';
+        $ret = '/^' . $this->_escape_route_uri($this->prefix) . $route . '\/?' . $wc . '$/';
+        return  $ret;
     }
 
+    protected function _escape_route_uri($uri) {
+        return str_replace('/', '\/', preg_quote($uri));
+    }
     /**
      * Returns the contents of a template, populated with the data given to it.
      */
