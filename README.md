@@ -9,6 +9,12 @@ in PHP less irritating than it currently is.
 Routes are converted to regex and cached so this process does not need to
 happen every request.
 
+Note: PHP already has many of the features that many microframeworks have, such
+as session handling, cookies, and templating. An aim of this project is to
+encourage the use of native functionality where possible or where it is good,
+but make some parts nicer or extend upon them to bring it up to scratch with
+the way I like things.
+
 
 Goals
 -----
