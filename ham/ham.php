@@ -267,10 +267,10 @@ class CacheFactory {
     /**
      * Returning a cache object, be it XCache or APC.
      */
-    public static function create($app) {
-        if(function_exists('xcache_set')) {
+    public static function create($app, $dummy=False) {
+        if(function_exists('xcache_set') && !$dummy) {
             static::$_cache = new XCache($app);
-        } else if(function_exists('apc_fetch')) {
+        } else if(function_exists('apc_fetch') && !$dummy) {
             static::$_cache = new APC($app);
         } else {
             static::$_cache = new Dummy($app);
