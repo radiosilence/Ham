@@ -25,12 +25,27 @@ class Ham {
      * and calls whichever one is approprate.
      */
     protected function _route() {
-        $uri = str_replace($this->config['APP_URI'], '', $_SERVER['REQUEST_URI']);
+        $uri = parse_url(str_replace($this->config['APP_URI'], '', $_SERVER['REQUEST_URI']));
+        $path = $uri['path'];
+        $_k = "found_uri:{$path}";
+        $found = Cache::get($_k);
+        if(!$found) {
+            $found = $this->_find_route($path);
+            Cache::set($_k, $found, 10);
+        }
+        $found['args'][0] = $this;
+        return call_user_func_array($found['callback'], $found['args']);
+    }
+
+    protected function _find_route($path) {
         $compiled = $this->_get_compiled_routes();
         foreach($compiled as $route) {
-            if(preg_match($route['compiled'], $uri, $args)) {
-                $args[0] = $this;
-                return call_user_func_array($route['callback'], $args);
+            if(preg_match($route['compiled'], $path, $args)) {
+                $found = array(
+                    'callback' => $route['callback'],
+                    'args' => $args
+                );
+                return $found;
             }
         }
         return abort(404);
@@ -135,9 +150,12 @@ class XCache implements HamCompatibleCache {
 
 class APC implements HamCompatibleCache {
     public function get($key) {
+        if(!apc_exists($key))
+            return False;
         return apc_fetch($key);
     }
     public function set($key, $value, $ttl) {
+
         return apc_store($key, $value, $ttl);
     }
     public function inc($key, $interval=1) {
