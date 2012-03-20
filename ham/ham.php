@@ -14,11 +14,9 @@ class Ham {
      * @param $name a canonical name for this app. Must not be shared between
      *  apps or cache collisions will happen. Unless you want that.
      */
-    public function __construct($name='default', $cache=False) {
+    public function __construct($name='default', $dummy_cache=False) {
         $this->name = $name;
-        if(!$cache) {
-            $cache = create_cache($this);
-        }
+        $cache = create_cache($this, $dummy_cache);
         $this->cache = $cache;
     }
 
