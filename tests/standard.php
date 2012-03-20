@@ -24,7 +24,7 @@ class HamTest extends PHPUnit_Framework_TestCase {
             return "beans";
         });
         $beans->route('/baked', function($app) {
-            return "baked";
+            return "yum";
         });
         $app->route('/beans', $beans);
         $this->app = $app;
@@ -75,7 +75,18 @@ class HamTest extends PHPUnit_Framework_TestCase {
 
     public function testSubAppHome() {
         $app = $this->app;
-        $_SERVER['REQUEST_URI'] = "/beans";
-        $this->assertEquals('beans', $app());
+        $uris = array('/beans', '/beans/');
+        foreach($uris as $uri){
+            $_SERVER['REQUEST_URI'] = $uri;
+            $this->assertEquals('beans', $app());
+        }
+    }
+    public function testSubAppPage() {
+        $app = $this->app;
+        $uris = array('/beans/baked', '/beans/baked/');
+        foreach($uris as $uri){
+            $_SERVER['REQUEST_URI'] = $uri;
+            $this->assertEquals('yum', $app());
+        }
     }
 }
