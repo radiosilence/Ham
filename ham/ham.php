@@ -22,8 +22,10 @@ class Ham {
     /**
      * Calls route and outputs it to STDOUT
      */
-    public function run() {
-        echo $this->_route();
+    public function run($echo=True) {
+        if($echo)
+            echo $this->_route();
+        return $this->_route();
     }
 
     /**
