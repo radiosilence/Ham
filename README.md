@@ -7,7 +7,8 @@ perhaps an extension system, autoloader and some other stuff to make developing
 in PHP less irritating than it currently is.
 
 Routes are converted to regex and cached so this process does not need to
-happen every request.
+happen every request. Furthermore, the resolved route for a given URI is also
+cached so on most requests thare is no regex matching involved.
 
 PHP presents an interesting challenge because due to it's architecture,
 everything has to be re-done each request, which is why I'm leveraging caching
