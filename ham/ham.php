@@ -14,9 +14,12 @@ class Ham {
      * @param $name a canonical name for this app. Must not be shared between
      *  apps or cache collisions will happen. Unless you want that.
      */
-    public function __construct($name) {
+    public function __construct($name, $cache=False) {
         $this->name = $name;
-        $this->cache = Cache::create($this);
+        if(!$cache) {
+            $cache = CacheFactory::create($this);
+        }
+        $this->cache = $cache;
     }
 
     public function route($uri, $callback, $request_methods=array('GET')) {
@@ -259,7 +262,7 @@ abstract class HamCache {
 }
 
 
-class Cache {
+class CacheFactory {
     private static $_cache;
     /**
      * Returning a cache object, be it XCache or APC.
