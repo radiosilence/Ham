@@ -1,19 +1,19 @@
 <?php 
+
 require '../ham/ham.php';
 
-$app = new Ham();
-$app->config_from_file('settings.php');
-
-$app->route('/pork', function($app) {
-    return "Delicious pork.";
+// Create our beans sub-app.
+$beans = new Ham('beans');
+$beans->route('/', function($app) {
+    return "Beans home.";
+});
+$beans->route('/baked', function($app) {
+    return "Yum!";
 });
 
-$hello = function($app, $name='world') {
-    return $app->render('hello.html', array(
-        'name' => $name
-    ));
-};
-$app->route('/hello/<string>', $hello);
-$app->route('/', $hello);
-
+$app = new Ham('example');
+$app->route('/', function($app) {
+    return "App home.";
+});
+$app->route('/beans', $beans);
 $app->run();
