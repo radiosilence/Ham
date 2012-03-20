@@ -105,12 +105,18 @@ class Ham {
      * Configure an application object from a file.
      */
     public function config_from_file($filename) {
+        $_k = 'config';
+        $this->config = $this->cache->get($_k);
+        if($this->config) {
+            return True;
+        } 
         require($filename);
         $conf = get_defined_vars();
         unset($conf['filename']);
         foreach($conf as $k => $v) {
             $this->config[$k] = $v;
         }
+        $this->cache->set($_k, $this->config);
     }
 
     public function config_from_env($var) {
