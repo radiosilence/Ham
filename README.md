@@ -6,6 +6,9 @@ with nice syntax, and a cache singleton. Will add more things as I go, like
 perhaps an extension system, autoloader and some other stuff to make developing
 in PHP less irritating than it currently is.
 
+Routes are converted to regex and cached so this process does not need to
+happen every request.
+
 Inspired entirely by Flask.
 
 
