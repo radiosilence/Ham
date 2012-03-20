@@ -6,8 +6,14 @@ class Ham {
     public $config;
     public $name;
     public $cache;
+    public $parent;
     public $template_paths = array('./templates/');
 
+    /**
+     * Create a Ham application.
+     * @param $name a canonical name for this app. Must not be shared between
+     *  apps or cache collisions will happen. Unless you want that.
+     */
     public function __construct($name) {
         $this->name = $name;
         $this->cache = Cache::create($this);
@@ -35,10 +41,14 @@ class Ham {
      * Calls route and outputs it to STDOUT
      */
     public function run() {
-        echo $this->_route();
+        echo $this();
     }
 
+    /**
+     * Invoke method allows the application to be mounted as a closure.
+     */
     public function __invoke($app) {
+        $this->parent = $app;
         return $this->_route();
     }
 
@@ -61,6 +71,7 @@ class Ham {
         $found['args'][0] = $this;
         return call_user_func_array($found['callback'], $found['args']);
     }
+
 
     protected function _find_route($path) {
         $compiled = $this->_get_compiled_routes();
@@ -115,6 +126,7 @@ class Ham {
     protected function _escape_route_uri($uri) {
         return str_replace('/', '\/', preg_quote($uri));
     }
+
     /**
      * Returns the contents of a template, populated with the data given to it.
      */
@@ -146,6 +158,10 @@ class Ham {
         $this->cache->set($_k, $this->config);
     }
 
+    /**
+     * Allows configuration file to be specified by environement variable,
+     * to make deployment easy.
+     */
     public function config_from_env($var) {
         return $this->config_from_file($_ENV[$var]);
     }
