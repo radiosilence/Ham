@@ -47,6 +47,15 @@ searching on lots of requests.
 Inspired entirely by Flask.
 
 
+Requirements
+------------
+
+* PHP 5.3
+* XCache (preferred) or APC (still optional)
+* Requests pointed at file that you put the app in (eg.
+  index.php).
+
+
 Hello World
 -----------
 
