@@ -19,6 +19,12 @@ class HamTest extends PHPUnit_Framework_TestCase {
         $app->route('/add/<int>/<int>', function($app, $a, $b) {
             return $a + $b;
         });
+        $app->route('/dividefloat/<float>/<float>', function($app, $a, $b) {
+            if($b == 0)
+                return 'NaN';
+            return $a / $b;
+        });
+
         $beans = new Ham('beans', True);
         $beans->route('/', function($app) {
             return "beans";
@@ -88,5 +94,25 @@ class HamTest extends PHPUnit_Framework_TestCase {
             $_SERVER['REQUEST_URI'] = $uri;
             $this->assertEquals('yum', $app());
         }
+    }
+
+    public function testFloatParameter() {
+        $app = $this->app;
+
+        $inputs_a = array(1.2, 8.3,   1.176, 0,   3);
+        $inputs_b = array(23,  -1.25,  4.2, 20,  0);
+        $outputs = array(
+            0.052173913,
+            -6.64, 
+            0.28,
+            0,
+            'NaN'
+        );
+        foreach($inputs_a as $k => $v) {
+            $_SERVER['REQUEST_URI'] = "/dividefloat/{$v}/{$inputs_b[$k]}";
+            $this->assertEquals($outputs[$k], $app());
+        }
+        $_SERVER['REQUEST_URI'] = '/dividefloat/1.6/2.5';
+        $this->assertEquals('0.64', $app());
     }
 }

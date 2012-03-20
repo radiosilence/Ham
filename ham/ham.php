@@ -112,6 +112,7 @@ class Ham {
         $route = $this->_escape_route_uri(rtrim($uri, '/'));
         $types = array(
             '<int>' => '([0-9\-]+)',
+            '<float>' => '([0-9\.\-]+)',
             '<string>' => '([a-zA-Z0-9\-_]+)',
             '<path>' => '([a-zA-Z0-9\-_\/])'
         );
