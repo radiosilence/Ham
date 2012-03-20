@@ -90,6 +90,7 @@ Have a gander at the example application for more details.
 To-Dos
 ------
 
+* Nice logging class and logging support with error levels, e-mailing, etc.
 * Sub-application mounting (ala Flask "Blueprints").
 * Sanitisation solution.
 * CSRF tokens
