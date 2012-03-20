@@ -20,6 +20,9 @@ encourage the use of native functionality where possible or where it is good,
 but make some parts nicer or extend upon them to bring it up to scratch with
 the way I like things.
 
+Note: For maximum speed gains, use the XCache extension because that supports
+caching of closures, unlike APC.
+
 
 Goals
 -----
