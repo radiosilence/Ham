@@ -5,8 +5,7 @@ class HamTest extends PHPUnit_Framework_TestCase {
     protected $app;
 
     protected function setUp() {
-        $app = new Ham();
-        $app->cache = create_cache($app, True);
+        $app = new Ham('default', True);
         $app->route('/', function($app) {
             return 'hello world';
         });
@@ -20,12 +19,12 @@ class HamTest extends PHPUnit_Framework_TestCase {
         $app->route('/add/<int>/<int>', function($app, $a, $b) {
             return $a + $b;
         });
-        $beans = new Ham('beans');
+        $beans = new Ham('beans', True);
         $beans->route('/', function($app) {
-            return "Beans home.";
+            return "beans";
         });
         $beans->route('/baked', function($app) {
-            return "Yum!";
+            return "baked";
         });
         $app->route('/beans', $beans);
         $this->app = $app;
@@ -65,12 +64,18 @@ class HamTest extends PHPUnit_Framework_TestCase {
 
     public function testMultiIntParameter() {
         $app = $this->app;
-        $inputs_a = array(1, 5, 2, 6, 3);
+        $inputs_a = array(1, 5,  2, 6,  3);
         $inputs_b = array(0, -2, 7, 20, -10);
-        $outputs = array(1, 3, 5, 26, -7);
+        $outputs = array( 1, 3,  9, 26, -7);
         foreach($inputs_a as $k => $v) {
             $_SERVER['REQUEST_URI'] = "/add/{$v}/{$inputs_b[$k]}";
             $this->assertEquals($outputs[$k], $app());
         }
+    }
+
+    public function testSubAppHome() {
+        $app = $this->app;
+        $_SERVER['REQUEST_URI'] = "/beans";
+        $this->assertEquals('beans', $app());
     }
 }
