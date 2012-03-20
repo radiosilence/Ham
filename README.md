@@ -10,6 +10,9 @@ Routes are converted to regex and cached so this process does not need to
 happen every request. Furthermore, the resolved route for a given URI is also
 cached so on most requests thare is no regex matching involved.
 
+There is also now the ability to mount apps on routes within apps, so one could
+make an administrator app, then mount it on the main app at /admin.
+
 PHP presents an interesting challenge because due to it's architecture,
 everything has to be re-done each request, which is why I'm leveraging caching
 with tiny TTLs to share the results of operations like route resolution
@@ -98,11 +101,12 @@ Multiple apps mounted on routes!
 
     require '../ham/ham.php';
 
-    // Create our beans sub-app.
     $beans = new Ham('beans');
+
     $beans->route('/', function($app) {
         return "Beans home.";
     });
+
     $beans->route('/baked', function($app) {
         return "Yum!";
     });
@@ -115,15 +119,17 @@ Multiple apps mounted on routes!
     $app->run();
 
 
-### /beans/
+Output: 
+
+#### /beans/
 
 Beans home.
 
-### /beans/baked
+#### /beans/baked
 
 Yum!
 
-### /
+#### /
 
 App home.
 
