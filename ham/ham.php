@@ -167,8 +167,12 @@ class APC implements HamCompatibleCache {
         return apc_fetch($key);
     }
     public function set($key, $value, $ttl=1) {
-
-        return apc_store($key, $value, $ttl);
+        try {
+            return apc_store($key, $value, $ttl);
+        } catch(Exception $e) {
+            apc_delete($key);
+            return False;
+        }
     }
     public function inc($key, $interval=1) {
         return apc_inc($key, $interval);
@@ -178,6 +182,20 @@ class APC implements HamCompatibleCache {
     }
 }
 
+class Dummy implements HamCompatibleCache {
+    public function get($key) {
+        return False;
+    }
+    public function set($key, $value, $ttl=1) {
+        return False;
+    }
+    public function inc($key, $interval=1) {
+        return False;
+    }
+    public function dec($key, $interval=1) {
+        return False;
+    }
+}
 interface HamCompatibleCache {
     public function set($key, $value, $ttl=1);
     public function get($key);
@@ -194,8 +212,10 @@ class Cache {
     public static function create() {
         if(function_exists('xcache_set')) {
             static::$_cache = new XCache();
-        } else if(function_exists('apc_add')) {
+        } else if(function_exists('apc_fetch')) {
             static::$_cache = new APC();
+        } else {
+            static::$_cache = new Dummy();
         }
         return static::$_cache;
     }
