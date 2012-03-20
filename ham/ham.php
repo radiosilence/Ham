@@ -46,6 +46,8 @@ class Ham {
 
     /**
      * Invoke method allows the application to be mounted as a closure.
+     * @param $parent a parent application that can be referenced by 
+     * $app->parent
      */
     public function __invoke($app=False) {
         $this->parent = $app;
