@@ -4,11 +4,13 @@ class Ham {
     private $_compiled_routes;
     public $routes;
     public $config;
+    public $name;
     public $cache;
     public $template_paths = array('./templates/');
 
-    public function __construct() {
-        $this->cache = Cache::create();
+    public function __construct($name) {
+        $this->name = $name;
+        $this->cache = Cache::create($this);
     }
 
     public function route($uri, $callback, $request_methods=array('GET')) {
@@ -168,46 +170,44 @@ function abort($code, $message='') {
     return "<h1>{$code}</h1><p>{$message}</p>";
 }
 
-
-
-class XCache implements HamCompatibleCache {
+class XCache extends HamCache {
     public function get($key) {
-        return xcache_get($key);
+        return xcache_get($this->_p($key));
     }
     public function set($key, $value, $ttl=1) {
-        return xcache_set($key, $value, $ttl);
+        return xcache_set($this->_p($key), $value, $ttl);
     }
     public function inc($key, $interval=1) {
-        return xcache_inc($key, $interval);
+        return xcache_inc($this->_p($key), $interval);
     }
     public function dec($key, $interval=1) {
-        return xcache_dec($key, $interval);
+        return xcache_dec($this->_p($key), $interval);
     }
 }
 
-class APC implements HamCompatibleCache {
+class APC extends HamCache {
     public function get($key) {
-        if(!apc_exists($key))
+        if(!apc_exists($this->_p($key)))
             return False;
-        return apc_fetch($key);
+        return apc_fetch($this->_p($key));
     }
     public function set($key, $value, $ttl=1) {
         try {
-            return apc_store($key, $value, $ttl);
+            return apc_store($this->_p($key), $value, $ttl);
         } catch(Exception $e) {
-            apc_delete($key);
+            apc_delete($this->_p($key));
             return False;
         }
     }
     public function inc($key, $interval=1) {
-        return apc_inc($key, $interval);
+        return apc_inc($this->_p($key), $interval);
     }
     public function dec($key, $interval=1) {
-        return apc_dec($key, $interval);
+        return apc_dec($this->_p($key), $interval);
     }
 }
 
-class Dummy implements HamCompatibleCache {
+class Dummy extends HamCache {
     public function get($key) {
         return False;
     }
@@ -221,11 +221,23 @@ class Dummy implements HamCompatibleCache {
         return False;
     }
 }
-interface HamCompatibleCache {
-    public function set($key, $value, $ttl=1);
-    public function get($key);
-    public function inc($key, $interval=1);
-    public function dec($key, $interval=1);
+
+abstract class HamCache {
+    public $prefix;
+
+    public function __construct($app=False) {
+        $this->prefix = $app->name;
+    }
+    protected function _p($key) {
+        if($this->prefix)
+            return $this->prefix . ':' . $key;
+        else
+            return $key;
+    }
+    abstract public function set($key, $value, $ttl=1);
+    abstract public function get($key);
+    abstract public function inc($key, $interval=1);
+    abstract public function dec($key, $interval=1);
 }
 
 
@@ -234,13 +246,13 @@ class Cache {
     /**
      * Returning a cache object, be it XCache or APC.
      */
-    public static function create() {
+    public static function create($app) {
         if(function_exists('xcache_set')) {
-            static::$_cache = new XCache();
+            static::$_cache = new XCache($app);
         } else if(function_exists('apc_fetch')) {
-            static::$_cache = new APC();
+            static::$_cache = new APC($app);
         } else {
-            static::$_cache = new Dummy();
+            static::$_cache = new Dummy($app);
         }
         return static::$_cache;
     }
