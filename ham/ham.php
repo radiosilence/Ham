@@ -14,7 +14,7 @@ class Ham {
      * @param $name a canonical name for this app. Must not be shared between
      *  apps or cache collisions will happen. Unless you want that.
      */
-    public function __construct($name, $cache=False) {
+    public function __construct($name='default', $cache=False) {
         $this->name = $name;
         if(!$cache) {
             $cache = create_cache($this);
@@ -188,7 +188,8 @@ class Ham {
 }
 
 function abort($code, $message='') {
-    header("Status: {$code}", False, $code);
+    if(php_sapi_name() != 'cli')
+        header("Status: {$code}", False, $code);
     return "<h1>{$code}</h1><p>{$message}</p>";
 }
 
