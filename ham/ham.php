@@ -54,15 +54,15 @@ class Ham {
      */
     public function __invoke($app=False) {
         $this->parent = $app;
-        return $this->_route();
+        return $this->_route($_SERVER['REQUEST_URI']);
     }
 
     /**
      * Makes sure the routes are compiled then scans through them
      * and calls whichever one is approprate.
      */
-    protected function _route() {
-        $uri = parse_url(str_replace($this->config['APP_URI'], '', $_SERVER['REQUEST_URI']));
+    protected function _route($request_uri) {
+        $uri = parse_url(str_replace($this->config['APP_URI'], '', $request_uri));
         $path = $uri['path'];
         $_k = "found_uri:{$path}";
         $found = $this->cache->get($_k);
