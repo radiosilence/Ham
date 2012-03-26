@@ -5,7 +5,8 @@ class HamTest extends PHPUnit_Framework_TestCase {
     protected $app;
 
     protected function setUp() {
-        $app = new Ham('default', True);
+        $cache1 = create_cache('default', True);
+        $app = new Ham('default', $cache1);
         $app->route('/', function($app) {
             return 'hello world';
         });
@@ -25,7 +26,7 @@ class HamTest extends PHPUnit_Framework_TestCase {
             return $a / $b;
         });
 
-        $beans = new Ham('beans', True);
+        $beans = new Ham('beans', $cache1);
         $beans->route('/', function($app) {
             return "beans";
         });
