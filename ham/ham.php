@@ -195,7 +195,7 @@ class Ham {
     /**
      * Cache factory, be it XCache or APC.
      */
-    function create_cache($app, $dummy=False) {
+    public static function create_cache($app, $dummy=False) {
         if(function_exists('xcache_set') && !$dummy) {
             return new XCache($app);
         } else if(function_exists('apc_fetch') && !$dummy) {
