@@ -1,5 +1,4 @@
 <?php
-require_once '../ham/ham.php';
  
 class HamTest extends PHPUnit_Framework_TestCase {
     protected $app;
