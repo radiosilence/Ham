@@ -7,6 +7,7 @@ class Ham {
     public $name;
     public $cache;
     public $parent;
+    public $prefix;
     public $template_paths = array('./templates/');
 
     /**
@@ -16,7 +17,7 @@ class Ham {
      */
     public function __construct($name='default', $dummy_cache=False) {
         $this->name = $name;
-        $cache = create_cache($this, $dummy_cache);
+        $cache = static::create_cache($this, $dummy_cache);
         $this->cache = $cache;
     }
 
@@ -69,7 +70,7 @@ class Ham {
             $this->cache->set($_k, $found, 10);
         }
         if(!$found) {
-            return abort(404);
+            return static::abort(404);
         }
         $found['args'][0] = $this;
         return call_user_func_array($found['callback'], $found['args']);
@@ -137,7 +138,7 @@ class Ham {
     public function render($name, $data) {
         $path = $this->_get_template_path($name);
         if(!$path)
-            return abort(500, 'Template not found');
+            return static::abort(500, 'Template not found');
         ob_start();
         extract($data);
         require $path;
@@ -163,7 +164,7 @@ class Ham {
     }
 
     /**
-     * Allows configuration file to be specified by environement variable,
+     * Allows configuration file to be specified by environment variable,
      * to make deployment easy.
      */
     public function config_from_env($var) {
@@ -184,12 +185,25 @@ class Ham {
         }
         return False;
     }
-}
-
-function abort($code, $message='') {
-    if(php_sapi_name() != 'cli')
-        header("Status: {$code}", False, $code);
-    return "<h1>{$code}</h1><p>{$message}</p>";
+    
+    public static function abort($code, $message='') {
+        if(php_sapi_name() != 'cli')
+            header("Status: {$code}", False, $code);
+        return "<h1>{$code}</h1><p>{$message}</p>";
+    }
+    
+    /**
+     * Cache factory, be it XCache or APC.
+     */
+    public static function create_cache($app, $dummy=False) {
+        if(function_exists('xcache_set') && !$dummy) {
+            return new XCache($app);
+        } else if(function_exists('apc_fetch') && !$dummy) {
+            return new APC($app);
+        } else {
+            return new Dummy($app);
+        }
+    }
 }
 
 class XCache extends HamCache {
@@ -260,17 +274,4 @@ abstract class HamCache {
     abstract public function get($key);
     abstract public function inc($key, $interval=1);
     abstract public function dec($key, $interval=1);
-}
-
-/**
- * Cache factory, be it XCache or APC.
- */
-function create_cache($app, $dummy=False) {
-    if(function_exists('xcache_set') && !$dummy) {
-        return new XCache($app);
-    } else if(function_exists('apc_fetch') && !$dummy) {
-        return new APC($app);
-    } else {
-        return new Dummy($app);
-    }
 }
