@@ -14,9 +14,11 @@ class Ham {
      * @param $name a canonical name for this app. Must not be shared between
      *  apps or cache collisions will happen. Unless you want that.
      */
-    public function __construct($name='default', $dummy_cache=False) {
+    public function __construct($name='default', $cache=False) {
         $this->name = $name;
-        $cache = create_cache($this, $dummy_cache);
+        if($cache === False) {
+            $cache = create_cache($this->name);
+        }
         $this->cache = $cache;
     }
 
@@ -247,8 +249,8 @@ class Dummy extends HamCache {
 abstract class HamCache {
     public $prefix;
 
-    public function __construct($app=False) {
-        $this->prefix = $app->name;
+    public function __construct($prefix=False) {
+        $this->prefix = $prefix;
     }
     protected function _p($key) {
         if($this->prefix)
@@ -265,12 +267,12 @@ abstract class HamCache {
 /**
  * Cache factory, be it XCache or APC.
  */
-function create_cache($app, $dummy=False) {
+function create_cache($prefix, $dummy=False) {
     if(function_exists('xcache_set') && !$dummy) {
-        return new XCache($app);
+        return new XCache($prefix);
     } else if(function_exists('apc_fetch') && !$dummy) {
-        return new APC($app);
+        return new APC($prefix);
     } else {
-        return new Dummy($app);
+        return new Dummy($prefix);
     }
 }

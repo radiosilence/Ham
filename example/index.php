@@ -2,13 +2,6 @@
 
 require '../ham/ham.php';
 
-$beans = new Ham('beans');
-$beans->route('/', function($app) {
-    return "Beans home.";
-});
-$beans->route('/baked', function($app) {
-    return "Yum!";
-});
 
 $app = new Ham('example');
 $app->route('/', function($app) {
@@ -20,6 +13,15 @@ $app->route('/hello/<string>', function($app, $name) {
         'name' => $name
     ));
 });
+        $app->route('/timestwo/<int>', function($app, $int) {
+            return $int * 2;
+        });
+        $app->route('/add/<int>/<int>', function($app, $a, $b) {
+            return $a + $b;
+        });
+        $app->route('/dividefloat/<float>/<float>', function($app, $a, $b) {
+            return $a / $b;
+        });
 
 $app->route('/beans', $beans);
 $app->run();
