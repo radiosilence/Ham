@@ -1,11 +1,10 @@
 <?php
-require_once '../ham/ham.php';
  
 class HamTest extends PHPUnit_Framework_TestCase {
     protected $app;
 
     protected function setUp() {
-        $cache1 = create_cache('default', True);
+        $cache1 = Ham::create_cache('default', True);
         $app = new Ham('default', $cache1);
         $app->route('/', function($app) {
             return 'hello world';
