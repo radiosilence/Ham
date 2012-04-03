@@ -18,7 +18,7 @@ class Ham {
     public function __construct($name='default', $cache=False) {
         $this->name = $name;
         if($cache === False) {
-            $cache = static::create_cache($this);
+            $cache = static::create_cache($this->name);
         }
         $this->cache = $cache;
     }
@@ -197,13 +197,13 @@ class Ham {
     /**
      * Cache factory, be it XCache or APC.
      */
-    public static function create_cache($app, $dummy=False) {
+    public static function create_cache($prefix, $dummy=False) {
         if(function_exists('xcache_set') && !$dummy) {
-            return new XCache($app);
+            return new XCache($prefix);
         } else if(function_exists('apc_fetch') && !$dummy) {
-            return new APC($app);
+            return new APC($prefix);
         } else {
-            return new Dummy($app);
+            return new Dummy($prefix);
         }
     }
 }
