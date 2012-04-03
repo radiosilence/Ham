@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+
+    <title>Ham by radiosilence</title>
+  </head>
+
+  <body>
+
+    <header>
+      <div class="container">
+        <h1>Ham</h1>
+        <h2>PHP Microframework</h2>
+
+        <section id="downloads">
+          <a href="https://github.com/radiosilence/Ham/zipball/master" class="btn">Download as .zip</a>
+          <a href="https://github.com/radiosilence/Ham/tarball/master" class="btn">Download as .tar.gz</a>
+          <a href="https://github.com/radiosilence/Ham" class="btn btn-github"><span class="icon"></span>View on GitHub</a>
+        </section>
+      </div>
+    </header>
+
+    <div class="container">
+      <section id="main_content">
+        <h1>Ham</h1>
+
+<p><em>Now includes tests!</em></p>
+
+<p>PHP Microframework for use with whatever you like. Basically just a fast router
+with nice syntax, and a cache singleton. Will add more things as I go, like
+perhaps an extension system, autoloader and some other stuff to make developing
+in PHP less irritating than it currently is.</p>
+
+<p>Routes are converted to regex and cached so this process does not need to
+happen every request. Furthermore, the resolved route for a given URI is also
+cached so on most requests thare is no regex matching involved.</p>
+
+<p>There is also now the ability to mount apps on routes within apps, so one could
+make an administrator app, then mount it on the main app at /admin.</p>
+
+<p>PHP presents an interesting challenge because due to it's architecture,
+everything has to be re-done each request, which is why I'm leveraging caching
+with tiny TTLs to share the results of operations like route resolution
+between requests.</p>
+
+<p>Note: PHP already has many of the features that many microframeworks have, such
+as session handling, cookies, and templating. An aim of this project is to
+encourage the use of native functionality where possible or where it is good,
+but make some parts nicer or extend upon them to bring it up to scratch with
+the way I like things.</p>
+
+<p>Note: For maximum speed gains, use the XCache extension because that supports
+caching of closures, unlike APC.</p>
+
+<h2>Goals</h2>
+
+<ul>
+<li>Make pretty much anything I/O related cached with XCache/APC
+(whichever is installed) in order to prevent excessive disk usage or path 
+searching on lots of requests.</li>
+<li>Provide a succinct syntax that means less magic and less code to read
+through and learn, without compromising speed or code length, by using native
+PHP methods and features.</li>
+<li>Promote a simple, flat way of building applications that don't need
+massive levels of abstraction.</li>
+<li>Encourage use of excellent third-party libraries such as Doctrine to prevent
+developers writing convoluted, unmaintainable code that people like me have to
+pick up and spend hours poring over just to get an idea of what on earth is
+going on.</li>
+<li>Define and document development patterns that allow for new developers to
+get up to speed quickly and write new code that isn't hacky.</li>
+</ul><p>Inspired entirely by Flask.</p>
+
+<h2>Requirements</h2>
+
+<ul>
+<li>PHP 5.3</li>
+<li>XCache (preferred) or APC (still optional)</li>
+<li>Requests pointed at file that you put the app in (eg.
+index.php).</li>
+</ul><h2>Hello World</h2>
+
+<pre><code>require '../ham/ham.php';
+
+$app = new Ham('example');
+
+$app-&gt;route('/', function($app) {
+    return 'Hello, world!';
+});
+
+$app-&gt;run();
+</code></pre>
+
+<h2>More Interesting Example</h2>
+
+<pre><code>require '../ham/ham.php';
+
+$app = new Ham('example');
+$app-&gt;config_from_file('settings.php');
+
+$app-&gt;route('/pork', function($app) {
+    return "Delicious pork.";
+});
+
+$hello = function($app, $name='world') {
+    return $app-&gt;render('hello.html', array(
+        'name' =&gt; $name
+    ));
+};
+$app-&gt;route('/hello/&lt;string&gt;', $hello);
+$app-&gt;route('/', $hello);
+
+$app-&gt;run();
+</code></pre>
+
+<h2>Multiple apps mounted on routes!</h2>
+
+<pre><code>require '../ham/ham.php';
+
+$beans = new Ham('beans');
+
+$beans-&gt;route('/', function($app) {
+    return "Beans home.";
+});
+
+$beans-&gt;route('/baked', function($app) {
+    return "Yum!";
+});
+
+$app = new Ham('example');
+$app-&gt;route('/', function($app) {
+    return "App home.";
+});
+$app-&gt;route('/beans', $beans);
+$app-&gt;run();
+</code></pre>
+
+<p>Output: </p>
+
+<h4>/beans/</h4>
+
+<p>Beans home.</p>
+
+<h4>/beans/baked</h4>
+
+<p>Yum!</p>
+
+<h4>/</h4>
+
+<p>App home.</p>
+
+<p>Have a gander at the example application for more details.</p>
+
+<h2>To-Dos</h2>
+
+<ul>
+<li>Nice logging class and logging support with error levels, e-mailing, etc.</li>
+<li>Sub-application mounting (ala Flask "Blueprints").</li>
+<li>Sanitisation solution.</li>
+<li>CSRF tokens</li>
+<li>Extension API</li>
+</ul><h2>Extension Ideas</h2>
+
+<ul>
+<li>Form generation (3rd-party? Phorms)</li>
+<li>ORM integration (most likely Doctrine)</li>
+<li>Auth module (using scrypt or something)</li>
+<li>Admin extension</li>
+</ul>
+      </section>
+    </div>
+
+    
+  </body>
+</html>
