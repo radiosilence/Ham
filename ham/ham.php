@@ -15,12 +15,15 @@ class Ham {
      * @param $name a canonical name for this app. Must not be shared between
      *  apps or cache collisions will happen. Unless you want that.
      */
-    public function __construct($name='default', $cache=False) {
+    public function __construct($name='default', $cache=False, $log=False) {
         $this->name = $name;
         if($cache === False) {
             $cache = static::create_cache($this->name);
         }
         $this->cache = $cache;
+        if($log) {
+            $this->logger = static::create_logger($log);
+        }
     }
 
     public function route($uri, $callback, $request_methods=array('GET')) {
@@ -206,6 +209,25 @@ class Ham {
             return new Dummy($prefix);
         }
     }
+
+    /**
+     * Logger factory; just FileLogger for now.
+     */
+    public static function create_logger($log_file) {
+        if (!file_exists($log_file)) {
+            if (is_writable(dirname($log_file))) {
+                touch($log_file);
+            } else {
+                static::abort(500, "Log file couldn't be created.");
+            }
+        }
+
+        if (!is_writable($log_file)) {
+            static::abort(500, "Log file isn't writable.");
+        }
+
+        return new FileLogger($log_file);
+    }
 }
 
 class XCache extends HamCache {
@@ -276,4 +298,38 @@ abstract class HamCache {
     abstract public function get($key);
     abstract public function inc($key, $interval=1);
     abstract public function dec($key, $interval=1);
+}
+
+class FileLogger extends HamLogger {
+    public $file;
+
+    public function __construct($file) {
+        $this->file = $file;
+    }
+
+    public function write($message, $severity) {
+        $message = date('Y-m-d H:i:s') . "\t$severity\t$message";
+        if (!is_writable($this->file)) {
+            return false;
+        }
+        file_put_contents($this->file, $message, FILE_APPEND | LOCK_EX);
+    }
+
+    public function error($message) {
+        return $this->write($message, 'error');
+    }
+
+    public function log($message) {
+        return $this->write($message, 'log');
+    }
+
+    public function info($message) {
+        return $this->write($message, 'info');
+    }
+}
+
+abstract class HamLogger {
+    abstract public function error($message);
+    abstract public function log($message);
+    abstract public function info($message);
 }
