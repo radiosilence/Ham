@@ -308,7 +308,7 @@ class FileLogger extends HamLogger {
     }
 
     public function write($message, $severity) {
-        $message = date('Y-m-d H:i:s') . "\t$severity\t$message";
+        $message = date('Y-m-d H:i:s') . "\t$severity\t$message\n";
         if (!is_writable($this->file)) {
             return false;
         }
