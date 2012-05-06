@@ -119,16 +119,18 @@ class HamTest extends PHPUnit_Framework_TestCase {
     public function testLogging() {
         $app = $this->app;
 
-        $pre_lines = count(file('log.txt'));
+        foreach ( array('log', 'info', 'error') as $type ) {
+            $pre_lines = count(file('log.txt'));
 
-        $app->logger->log('message');
+            $app->logger->$type('message');
 
-        // First, test that a line was added
-        $post_lines = count(file('log.txt'));
-        $this->assertEquals($post_lines, $pre_lines + 1);
+            // First, test that a line was added
+            $post_lines = count(file('log.txt'));
+            $this->assertEquals($post_lines, $pre_lines + 1);
 
-        // ...and second, that the the line actually logged the expected value
-        $match = preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\tlog\tmessage\n/m', file_get_contents('log.txt'));
-        $this->assertEquals($match, 1);
+            // ...and second, that the the line actually logged the expected value
+            $match = preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\t' . $type . '\tmessage\n/m', file_get_contents('log.txt'));
+            $this->assertEquals($match, 1);
+        }
     }
 }
