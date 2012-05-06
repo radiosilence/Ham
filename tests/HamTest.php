@@ -5,7 +5,7 @@ class HamTest extends PHPUnit_Framework_TestCase {
 
     protected function setUp() {
         $cache1 = Ham::create_cache('default', True);
-        $app = new Ham('default', $cache1);
+        $app = new Ham('default', $cache1, 'log.txt');
         $app->route('/', function($app) {
             return 'hello world';
         });
@@ -114,5 +114,23 @@ class HamTest extends PHPUnit_Framework_TestCase {
         }
         $_SERVER['REQUEST_URI'] = '/dividefloat/1.6/2.5';
         $this->assertEquals('0.64', $app());
+    }
+
+    public function testLogging() {
+        $app = $this->app;
+
+        foreach ( array('log', 'info', 'error') as $type ) {
+            $pre_lines = count(file('log.txt'));
+
+            $app->logger->$type('message');
+
+            // First, test that a line was added
+            $post_lines = count(file('log.txt'));
+            $this->assertEquals($post_lines, $pre_lines + 1);
+
+            // ...and second, that the the line actually logged the expected value
+            $match = preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\t' . $type . '\tmessage\n/m', file_get_contents('log.txt'));
+            $this->assertEquals($match, 1);
+        }
     }
 }
