@@ -1,19 +1,22 @@
 <?php
 
 class Ham {
-    private $_compiled_routes;
+
     public $routes;
     public $config;
     public $name;
     public $cache;
+    public $logger;
     public $parent;
     public $prefix;
+    public $layout = null;
     public $template_paths = array('./templates/');
 
     /**
      * Create a Ham application.
-     * @param $name a canonical name for this app. Must not be shared between
-     *  apps or cache collisions will happen. Unless you want that.
+     * @param string $name a canonical name for this app. Must not be shared between apps or cache collisions will happen. Unless you want that.
+     * @param mixed $cache
+     * @param bool $log
      */
     public function __construct($name='default', $cache=False, $log=False) {
         $this->name = $name;
@@ -26,6 +29,13 @@ class Ham {
         }
     }
 
+    /**
+     * Add routes
+     * @param $uri
+     * @param $callback
+     * @param array $request_methods
+     * @return bool
+     */
     public function route($uri, $callback, $request_methods=array('GET')) {
         if($this === $callback) {
             return False;
@@ -42,6 +52,8 @@ class Ham {
             'request_methods' => $request_methods,
             'wildcard' => $wildcard
         );
+
+        return true;
     }
 
     /**
@@ -53,8 +65,8 @@ class Ham {
 
     /**
      * Invoke method allows the application to be mounted as a closure.
-     * @param $parent a parent application that can be referenced by 
-     * $app->parent
+     * @param mixed|bool $app parent application that can be referenced by $app->parent
+     * @return mixed|string
      */
     public function __invoke($app=False) {
         $this->parent = $app;
@@ -137,18 +149,43 @@ class Ham {
         return str_replace('/', '\/', preg_quote($uri));
     }
 
-    /**
-     * Returns the contents of a template, populated with the data given to it.
-     */
-    public function render($name, $data) {
-        $path = $this->_get_template_path($name);
+    public function partial($view, $data = null) {
+        $path = $this->_get_template_path($view);
         if(!$path)
-            return static::abort(500, 'Template not found');
+              return static::abort(500, 'Template not found');
+
         ob_start();
-        extract($data);
+        if(is_array($data))
+            extract($data);
         require $path;
-        return ob_get_clean();
+        return trim(ob_get_clean());
     }
+
+    /**
+       * Returns the contents of a template, populated with the data given to it.
+       */
+    public function render($view, $data = null, $layout = null) {
+        $content =  $this->partial($view, $data);
+
+        if ($layout !== false) {
+
+            if ($layout == null) {
+                $layout = ($this->layout == null) ? 'layout.php' : $this->layout;
+            }
+
+            $data['content'] = $content;
+            return $this->partial($layout, $data);
+        } else {
+            return $content;
+        }
+    }
+
+    public function json($obj, $code = 200) {
+        header('Content-type: application/json', true, $code);
+        echo json_encode($obj);
+        exit;
+    }
+
 
     /**
      * Configure an application object from a file.
@@ -158,7 +195,7 @@ class Ham {
         $this->config = $this->cache->get($_k);
         if($this->config) {
             return True;
-        } 
+        }
         require($filename);
         $conf = get_defined_vars();
         unset($conf['filename']);
@@ -166,6 +203,8 @@ class Ham {
             $this->config[$k] = $v;
         }
         $this->cache->set($_k, $this->config);
+
+        return true;
     }
 
     /**
@@ -190,13 +229,19 @@ class Ham {
         }
         return False;
     }
-    
+
+    /**
+     * Cancel application
+     * @param $code
+     * @param string $message
+     * @return string
+     */
     public static function abort($code, $message='') {
         if(php_sapi_name() != 'cli')
             header("Status: {$code}", False, $code);
         return "<h1>{$code}</h1><p>{$message}</p>";
     }
-    
+
     /**
      * Cache factory, be it XCache or APC.
      */
@@ -313,6 +358,8 @@ class FileLogger extends HamLogger {
             return false;
         }
         file_put_contents($this->file, $message, FILE_APPEND | LOCK_EX);
+
+        return true;
     }
 
     public function error($message) {
