@@ -1,0 +1,20 @@
+{
+    "name": "radiosilence/ham",
+    "description": "PHP Microframework for use with whatever you like.",
+    "homepage": "https://github.com/radiosilence/Ham",
+    "support": {
+        "issues": "https://github.com/radiosilence/Ham/issues",
+        "source": "https://github.com/radiosilence/Ham"
+    },
+    "license": "BSD-2-Clause",
+    "keywords": [
+        "microframework",
+        "router"
+    ],
+    "require": {
+        "php": ">=5.3"
+    },
+    "autoload": {
+        "files": ["ham/ham.php"]
+    }
+}
