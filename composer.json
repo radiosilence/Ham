@@ -16,5 +16,9 @@
     },
     "autoload": {
         "files": ["ham/ham.php"]
+    },
+    "suggest": {
+        "XCache (http://xcache.lighttpd.net/)": "Either XCache or APC is required. XCache is preferred.",
+        "ext-apc": "Either XCache or APC is required. XCache is preferred."
     }
 }
