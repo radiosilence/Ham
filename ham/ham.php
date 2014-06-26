@@ -74,6 +74,37 @@ class Ham {
     }
 
     /**
+	* Exists only as a function to fill as a setter for 
+	* A developer to add custom 404 pages
+	* If a log message is set, it will append the error functio
+	* to the developer-defined one. 
+    */
+
+    public function onError($closure_callback,$logMessage=NULL) {
+    	if($logMessage) {
+    		$closure_callback = function(){
+    			call_user_func($closure_callback);
+    			$this->error($logMessage);
+    		};
+    	}
+		$this->errorFunc = $closure_callback;
+
+    }
+
+    /**
+	* Called upon when 404 is deduced to be the only outcome
+    */
+
+    protected function page_not_found() {
+    	if(isset($this->errorFunc)){
+    		header("HTTP/1.0 404 Not Found");
+    		return call_user_func($this->errorFunc);  // Dev defined Error
+    	} else {
+    		return static::abort(404); 			      // Generic Error
+    	}
+    }
+
+    /**
      * Makes sure the routes are compiled then scans through them
      * and calls whichever one is approprate.
      */
@@ -87,7 +118,7 @@ class Ham {
             $this->cache->set($_k, $found, 10);
         }
         if(!$found) {
-            return static::abort(404);
+            return $this->page_not_found();
         }
         $found['args'][0] = $this;
         return call_user_func_array($found['callback'], $found['args']);
