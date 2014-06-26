@@ -122,6 +122,22 @@ Multiple apps mounted on routes!
     $app->run();
 
 
+Custom Error Handeling
+--------------------------------
+    require 'ham/ham.php';
+
+    $beans = new Ham('beans');
+
+    $beans->route('/', function($app) {
+        return "Beans home.";
+    });
+
+    $app->onError(function(){
+        return "Burnt Bacon.";
+    }, "Error message can go here.");
+
+    $app->run();
+
 Output: 
 
 #### /beans/
@@ -136,6 +152,9 @@ Yum!
 
 App home.
 
+#### /definitely_not_the_page_you_were_looking_for
+
+Burnt Bacon.
 
 Have a gander at the example application for more details.
 
