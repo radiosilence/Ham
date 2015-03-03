@@ -65,78 +65,85 @@ Requirements
 Hello World
 -----------
 
-    require '../ham/ham.php';
+```php
+require '../ham/ham.php';
 
-    $app = new Ham('example');
+$app = new Ham('example');
 
-    $app->route('/', function($app) {
-        return 'Hello, world!';
-    });
+$app->route('/', function($app) {
+    return 'Hello, world!';
+});
 
-    $app->run();
+$app->run();
+```
 
 
 More Interesting Example
 ------------------------
 
-    require '../ham/ham.php';
+```php
+require '../ham/ham.php';
 
-    $app = new Ham('example');
-    $app->config_from_file('settings.php');
+$app = new Ham('example');
+$app->config_from_file('settings.php');
 
-    $app->route('/pork', function($app) {
-        return "Delicious pork.";
-    });
+$app->route('/pork', function($app) {
+    return "Delicious pork.";
+});
 
-    $hello = function($app, $name='world') {
-        return $app->render('hello.html', array(
-            'name' => $name
-        ));
-    };
-    $app->route('/hello/<string>', $hello);
-    $app->route('/', $hello);
+$hello = function($app, $name='world') {
+    return $app->render('hello.html', array(
+        'name' => $name
+    ));
+};
+$app->route('/hello/<string>', $hello);
+$app->route('/', $hello);
 
-    $app->run();
-
+$app->run();
+```
 
 Multiple apps mounted on routes!
 --------------------------------
 
-    require '../ham/ham.php';
+```php
+require '../ham/ham.php';
 
-    $beans = new Ham('beans');
+$beans = new Ham('beans');
 
-    $beans->route('/', function($app) {
-        return "Beans home.";
-    });
+$beans->route('/', function($app) {
+    return "Beans home.";
+});
 
-    $beans->route('/baked', function($app) {
-        return "Yum!";
-    });
+$beans->route('/baked', function($app) {
+    return "Yum!";
+});
 
-    $app = new Ham('example');
-    $app->route('/', function($app) {
-        return "App home.";
-    });
-    $app->route('/beans', $beans);
-    $app->run();
-
+$app = new Ham('example');
+$app->route('/', function($app) {
+    return "App home.";
+});
+$app->route('/beans', $beans);
+$app->run();
+```
 
 Custom Error Handeling
 --------------------------------
-    require 'ham/ham.php';
 
-    $beans = new Ham('beans');
+```php
+require 'ham/ham.php';
 
-    $beans->route('/', function($app) {
-        return "Beans home.";
-    });
+$beans = new Ham('beans');
 
-    $app->onError(function(){
-        return "Burnt Bacon.";
-    }, "Error message can go here.");
+$beans->route('/', function($app) {
+    return "Beans home.";
+});
 
-    $app->run();
+$app->onError(function(){
+    return "Burnt Bacon.";
+}, "Error message can go here.");
+
+$app->run();
+```
 
 Output: 
 
