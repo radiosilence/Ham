@@ -1,0 +1,9 @@
+# Turn on URL rewriting engine
+RewriteEngine On
+
+# Disable rewriting for existing files or directories
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Redirect all other requests to index.php
+RewriteRule ^.*$ index.php [PT,L]
