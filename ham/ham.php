@@ -4,7 +4,7 @@ class Ham {
 
     public $routes;
     public $config;
-    public $name;
+    public static $name;
     public $cache;
     public $logger;
     public $parent;
@@ -270,7 +270,7 @@ class Ham {
     public static function abort($code, $message='') {
         if(php_sapi_name() != 'cli')
             header("Status: {$code}", False, $code);
-        $name = $this->name;
+        $name = self::$name;
         return "<h1>{$code}</h1><p>{$message}</p><p>{$name}</p>";
     }
 
@@ -278,7 +278,7 @@ class Ham {
      * Cache factory, be it XCache or APC.
      */
     public static function create_cache($prefix, $dummy=False,$redisFirst=False) {
-        if(redisFirst){
+        if($redisFirst){
             if(class_exists("Redis") && !$dummy){
                 return new RedisCache($prefix);
             }else if(function_exists('xcache_set') && !$dummy) {
