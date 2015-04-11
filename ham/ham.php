@@ -10,7 +10,7 @@ class Ham {
     public $parent;
     public $prefix;
     public $layout = null;
-    public $template_paths = array('./templates/');
+    public $template_paths = ['./templates/'];
 
     /**
      * Create a Ham application.
@@ -270,19 +270,34 @@ class Ham {
     public static function abort($code, $message='') {
         if(php_sapi_name() != 'cli')
             header("Status: {$code}", False, $code);
-        return "<h1>{$code}</h1><p>{$message}</p>";
+        $name = $this->name;
+        return "<h1>{$code}</h1><p>{$message}</p><p>{$name}</p>";
     }
 
     /**
      * Cache factory, be it XCache or APC.
      */
-    public static function create_cache($prefix, $dummy=False) {
-        if(function_exists('xcache_set') && !$dummy) {
-            return new XCache($prefix);
-        } else if(function_exists('apc_fetch') && !$dummy) {
-            return new APC($prefix);
-        } else {
-            return new Dummy($prefix);
+    public static function create_cache($prefix, $dummy=False,$redisFirst=False) {
+        if(redisFirst){
+            if(class_exists("Redis") && !$dummy){
+                return new RedisCache($prefix);
+            }else if(function_exists('xcache_set') && !$dummy) {
+                return new XCache($prefix);
+            } else if(function_exists('apc_fetch') && !$dummy) {
+                return new APC($prefix);
+            } else {
+                return new Dummy($prefix);
+            }
+        }else{
+            if(function_exists('xcache_set') && !$dummy) {
+                return new XCache($prefix);
+            } else if(function_exists('apc_fetch') && !$dummy) {
+                return new APC($prefix);
+            } else if(class_exists("Redis") && !$dummy){
+                return new RedisCache($prefix);
+            } else {
+                return new Dummy($prefix);
+            }
         }
     }
 
@@ -340,6 +355,33 @@ class APC extends HamCache {
     }
     public function dec($key, $interval=1) {
         return apc_dec($this->_p($key), $interval);
+    }
+}
+
+class RedisCache extends HamCache{
+    public function __construct($prefix=false,$host="127.0.0.1"){
+        parent::__construct($prefix);
+        $this->_conn = new Redis();
+        $this->_conn->connect($host);
+    }
+
+    public function get($key){
+        return $this->_conn->get($this->_p($key));
+    }
+    public function set($key, $val,$ttl=false){
+        $ttl = $ttl ?  $ttl*1000 : null;
+        if(is_null($ttl)){
+            return $this->_conn->set($this->_p($key),$val);
+        }else{
+            return $this->_conn->set($this->_p($key),$val,$ttl);
+        }
+    }
+    public function inc($key,$interval=1){
+        $this->_conn->incr($this->_p($key),$interval);
+    
+    }
+    public function dec($key,$interval=1){
+        $this->_conn->decr($this->_p($key),$interval);
     }
 }
 
