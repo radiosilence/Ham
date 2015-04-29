@@ -1,6 +1,8 @@
 <?php
 
-class Ham {
+// Ham - https://github.com/radiosilence/Ham
+
+class Router {
 
     public $routes;
     public $config;
@@ -13,7 +15,7 @@ class Ham {
     public $template_paths = ['./templates/'];
 
     /**
-     * Create a Ham application.
+     * Create new router
      * @param string $name a canonical name for this app. Must not be shared between apps or cache collisions will happen. Unless you want that.
      * @param mixed $cache
      * @param bool $log
@@ -41,7 +43,7 @@ class Ham {
             return False;
         }
         $wildcard = False;
-        if($callback instanceof Ham) {
+        if($callback instanceof Router) {
             $callback->prefix = $uri;
             $wildcard = True;
         }
@@ -321,7 +323,7 @@ class Ham {
     }
 }
 
-class XCache extends HamCache {
+class XCache extends RouterCache {
     public function get($key) {
         return xcache_get($this->_p($key));
     }
@@ -336,7 +338,7 @@ class XCache extends HamCache {
     }
 }
 
-class APC extends HamCache {
+class APC extends RouterCache {
     public function get($key) {
         if(!apc_exists($this->_p($key)))
             return False;
@@ -358,7 +360,7 @@ class APC extends HamCache {
     }
 }
 
-class RedisCache extends HamCache{
+class RedisCache extends RouterCache{
     public function __construct($prefix=false,$host="127.0.0.1"){
         parent::__construct($prefix);
         $this->_conn = new Redis();
@@ -385,7 +387,7 @@ class RedisCache extends HamCache{
     }
 }
 
-class Dummy extends HamCache {
+class Dummy extends RouterCache {
     public function get($key) {
         return False;
     }
@@ -400,7 +402,7 @@ class Dummy extends HamCache {
     }
 }
 
-abstract class HamCache {
+abstract class RouterCache {
     public $prefix;
 
     public function __construct($prefix=False) {
@@ -418,7 +420,7 @@ abstract class HamCache {
     abstract public function dec($key, $interval=1);
 }
 
-class FileLogger extends HamLogger {
+class FileLogger extends RouterLogger {
     public $file;
 
     public function __construct($file) {
@@ -448,7 +450,7 @@ class FileLogger extends HamLogger {
     }
 }
 
-abstract class HamLogger {
+abstract class RouterLogger {
     abstract public function error($message);
     abstract public function log($message);
     abstract public function info($message);
