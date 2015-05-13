@@ -133,4 +133,14 @@ class HamTest extends PHPUnit_Framework_TestCase {
             $this->assertEquals($match, 1);
         }
     }
+    public function testAbortHasName(){
+        $app = $this->app;
+        $this->assertContains($app->name,$app->abort(401,'error'));    
+    }
+
+    public function testStaticAbortHasNoName(){
+        $app = $this->app;
+        $cls = get_class($app);
+        $this->assertContains('App not set, call this function from the app or explicitly pass the $app as the last argument',$cls::_abort(404,'error'));
+    }
 }

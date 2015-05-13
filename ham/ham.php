@@ -4,7 +4,7 @@ class Ham {
 
     public $routes;
     public $config;
-    public static $name;
+    public $name;
     public $cache;
     public $logger;
     public $parent;
@@ -262,16 +262,30 @@ class Ham {
     }
 
     /**
-     * Cancel application
-     * @param $code
+     * static version of abort
+     * to allow for calling of abort by class
+     * @param integer $code
+     * @param string $message
+     * @param Ham $app
+     * @return string
+     */
+    public static function _abort($code, $message='',$app=null) {
+        if(php_sapi_name() != 'cli')
+            header("Status: {$code}", False, $code);
+        $name = !is_null($app) ? 
+                $app->name : 
+                'App not set, call this function from the app or explicitly pass the $app as the last argument';
+        return "<h1>{$code}</h1><p>{$message}</p><p>{$name}</p>";
+    }
+
+    /**
+     * application specific Cancel method
+     * @param integer $code
      * @param string $message
      * @return string
      */
-    public static function abort($code, $message='') {
-        if(php_sapi_name() != 'cli')
-            header("Status: {$code}", False, $code);
-        $name = self::$name;
-        return "<h1>{$code}</h1><p>{$message}</p><p>{$name}</p>";
+    public function abort($code,$message=''){
+        return self::_abort($code,$message,$this);
     }
 
     /**
