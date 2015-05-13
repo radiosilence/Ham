@@ -10,7 +10,7 @@ class Ham {
     public $parent;
     public $prefix;
     public $layout = null;
-    public $template_paths = ['./templates/'];
+    public $template_paths = array('./templates/');
 
     /**
      * Create a Ham application.
