@@ -1,0 +1,26 @@
+{
+    "name": "radiosilence/ham",
+    "description": "PHP Microframework for use with whatever you like.",
+    "homepage": "https://github.com/radiosilence/Ham",
+    "support": {
+        "issues": "https://github.com/radiosilence/Ham/issues",
+        "source": "https://github.com/radiosilence/Ham"
+    },
+    "license": "BSD-2-Clause",
+    "keywords": [
+        "microframework",
+        "router"
+    ],
+    "require": {
+        "php": ">=5.3",
+        "twig/twig": "~1.0",
+        "radiosilence/ham":"*"
+    },
+    "autoload": {
+        "files": ["./vendor/twig/twig/lib/Twig/Autoloader.php"]
+    },
+    "suggest": {
+        "XCache (http://xcache.lighttpd.net/)": "Either XCache or APC is required. XCache is preferred.",
+        "ext-apc": "Either XCache or APC is required. XCache is preferred."
+    }
+}

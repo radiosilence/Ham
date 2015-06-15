@@ -1,0 +1,5 @@
+vendor/*
+examples/twig_example/vendor/*
+*.lock
+
+
