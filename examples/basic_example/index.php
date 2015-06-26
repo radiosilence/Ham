@@ -1,6 +1,6 @@
-<?php 
+<?php
 
-require '../ham/ham.php';
+require '../../ham/ham.php';
 
 $beans = new Ham('beans');
 $beans->route('/', function($app) {
