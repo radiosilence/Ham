@@ -71,7 +71,10 @@ class App
     /** Respond to the current request. */
     public function run(): void
     {
-        echo $this->handle($_SERVER['REQUEST_URI'] ?? '/', $_SERVER['REQUEST_METHOD'] ?? 'GET');
+        $uri = $_SERVER['REQUEST_URI'] ?? null;
+        $method = $_SERVER['REQUEST_METHOD'] ?? null;
+
+        echo $this->handle(is_string($uri) ? $uri : '/', is_string($method) ? $method : 'GET');
     }
 
     public function handle(string $uri, string $method = 'GET'): string
@@ -104,7 +107,7 @@ class App
                 continue;
             }
 
-            return (string) ($route->handler)($this, ...$args);
+            return self::body(($route->handler)($this, ...$args));
         }
 
         if ($methodMismatch) {
@@ -113,10 +116,19 @@ class App
         if ($this->notFoundHandler) {
             http_response_code(404);
 
-            return (string) ($this->notFoundHandler)($this);
+            return self::body(($this->notFoundHandler)($this));
         }
 
         return $this->abort(404);
+    }
+
+    private static function body(mixed $result): string
+    {
+        return match (true) {
+            $result === null => '',
+            is_string($result), is_int($result), is_float($result), $result instanceof \Stringable => (string) $result,
+            default => throw new \UnexpectedValueException('Handlers must return a string, number, Stringable or null, not ' . get_debug_type($result) . '.'),
+        };
     }
 
     /** Replace the default 404 response. The handler receives the app. */
@@ -127,13 +139,17 @@ class App
         return $this;
     }
 
-    /** Render a template without the layout. Templates are plain PHP with $data extracted into scope. */
+    /**
+     * Render a template without the layout. Templates are plain PHP with $data extracted into scope.
+     *
+     * @param array<string, mixed> $data
+     */
     #[\NoDiscard]
     public function partial(string $view, array $data = []): string
     {
         $path = array_find(
             array_map(static fn ($dir) => rtrim($dir, '/') . '/' . $view, $this->templatePaths),
-            is_file(...),
+            static fn ($path) => is_file($path),
         ) ?? throw new \RuntimeException("Template not found: {$view}");
 
         $include = function (string $__path, array $__data): void {
@@ -151,7 +167,11 @@ class App
         }
     }
 
-    /** Render a template inside a layout, which receives the result as $content. */
+    /**
+     * Render a template inside a layout, which receives the result as $content.
+     *
+     * @param array<string, mixed> $data
+     */
     #[\NoDiscard]
     public function render(string $view, array $data = [], string|false|null $layout = null): string
     {
@@ -181,7 +201,13 @@ class App
     /** Merge in configuration from a PHP file that returns an array. */
     public function configFromFile(string $path): static
     {
-        $this->config = [...$this->config, ...(require $path)];
+        $config = require $path;
+        if (!is_array($config)) {
+            throw new \UnexpectedValueException("Configuration file must return an array: {$path}");
+        }
+
+        /** @var array<string, mixed> $config */
+        $this->config = [...$this->config, ...$config];
 
         return $this;
     }

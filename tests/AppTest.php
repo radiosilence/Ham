@@ -115,6 +115,14 @@ final class AppTest extends TestCase
         $this->assertStringContainsString('404', $this->app->handle('/beansprout'));
     }
 
+    public function testRejectsUnprintableHandlerResult(): void
+    {
+        $this->app->route('/array', fn () => ['pork']);
+
+        $this->expectException(\UnexpectedValueException::class);
+        $this->app->handle('/array');
+    }
+
     public function testCannotMountOnItself(): void
     {
         $this->expectException(\LogicException::class);
@@ -142,7 +150,7 @@ final class AppTest extends TestCase
     public function testMissingTemplateThrows(): void
     {
         $this->expectException(\RuntimeException::class);
-        $this->app->partial('missing.php');
+        (void) $this->app->partial('missing.php');
     }
 
     public function testJson(): void
@@ -173,7 +181,7 @@ final class AppTest extends TestCase
         $logger->$severity('message');
         $logger->$severity('again');
 
-        $lines = file($file, FILE_IGNORE_NEW_LINES);
+        $lines = file($file, FILE_IGNORE_NEW_LINES) ?: [];
         unlink($file);
         $this->assertCount(2, $lines);
         $this->assertMatchesRegularExpression("/^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\t{$severity}\tmessage$/", $lines[0]);
