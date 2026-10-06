@@ -3,3 +3,4 @@ composer.lock
 .phpunit.cache/
 examples/*/vendor/
 *.log
+.phpunit.result.cache
