@@ -2,40 +2,42 @@
 
 ## Unreleased
 
-Rewritten for PHP 8.5. Every public name has changed, so existing applications
-need updating.
+Rewritten for PHP 8.5 as a drop-in replacement: the classes, methods, properties
+and configuration file format of the previous version are unchanged. The
+previous version could not run on PHP 8 at all.
+
+Public methods and properties declare parameter types natively, but return and
+property types only in docblocks. Existing subclasses that override `render()`
+or redeclare `$layout` would otherwise fail to load.
 
 ### Changed
 
-- Requires PHP 8.5 and loads through Composer's PSR-4 autoloader as `Ham\App`.
-  Method names are camelCase (`configFromFile`, `templatePaths`).
-- Route captures are cast to `int` or `float` according to their placeholder,
-  so handlers can declare typed parameters under strict types.
-- Request methods passed to `route()` are now enforced; a mismatch returns 405.
-  They were previously stored but ignored.
-- Mounted apps dispatch the remainder of the path directly and no longer read
-  `$_SERVER['REQUEST_URI']` themselves. A mount at `/beans` no longer matches
-  `/beansprout`.
-- `handle($uri, $method)` dispatches a request without touching superglobals.
-  It replaces invoking the app as a closure.
-- Configuration files return an array instead of declaring variables.
-- `json()` returns the encoded body instead of echoing it and calling `exit`.
-- `abort()` escapes its message and no longer includes the app name.
-- A missing template throws instead of rendering a 500 page into the output.
-- The logger is constructed by the caller (`new FileLogger($path)`) and throws
-  when the file is not writable.
-- `APP_URI` is replaced by the `basePath` property, which strips only a leading
-  prefix rather than every occurrence in the URI.
+- Requires PHP 8.5.
+- `route()` accepts any request method by default. A list of methods, when
+  given, is now enforced with a 405 response; previously it was stored and
+  ignored. `HEAD` is allowed wherever `GET` is.
+- A mounted app receives the rest of the path from its parent instead of
+  re-matching `$_SERVER['REQUEST_URI']`, and a mount at `/beans` no longer
+  matches `/beansprout`.
+- `APP_URI` strips a leading prefix only, rather than every occurrence in the URI.
+- Configuration files may return an array as well as declare variables.
+- `config_from_env()` falls back to `getenv()` when `$_ENV` is not populated.
+- `create_logger()` throws when the log file cannot be created or written.
+  It previously called `abort()` statically, which is fatal on PHP 8.
+- `run()` throws when a handler returns an array or a non-stringable object,
+  rather than printing `Array`.
+- The `APC` cache is backed by APCu, APC's successor.
 
 ### Removed
 
-- XCache, APC and Redis caches. XCache and APC do not exist for PHP 7 or later;
-  APCu replaces them. Other backends can implement `Ham\Cache`.
-- Caching of compiled routes, route lookups and template paths. With OPcache,
-  matching a few compiled expressions is cheaper than a cache round trip.
+- The `XCache` cache. XCache does not exist for PHP 7 or later.
+- Caching of compiled routes, resolved URIs, template paths and configuration.
+  With OPcache, this work costs less than the cache lookup that replaced it.
 
 ### Fixed
 
-- `onError()`, which referenced variables its closure never captured, is
-  replaced by `notFound()`.
-- `<path>` matched a single character only.
+- `onError()` referenced variables its closure never captured, so it failed
+  whenever a log message was given. The handler now also receives the app.
+- `<path>` matched a single character only, and now also matches `.`.
+- `RedisCache` passed its TTL to Redis in milliseconds where seconds are expected.
+- Template data with a `path` key overwrote the template's own path.

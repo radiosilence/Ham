@@ -1,6 +1,5 @@
 <?php
+$DEBUG = True;
+$APP_NAME = 'Testing Application';
 
-return [
-    'DEBUG' => true,
-    'APP_NAME' => 'Testing Application',
-];
+include 'settings_local.php';

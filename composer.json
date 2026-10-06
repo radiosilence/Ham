@@ -7,18 +7,21 @@
         "source": "https://github.com/radiosilence/Ham"
     },
     "license": "BSD-2-Clause",
-    "keywords": ["microframework", "router"],
+    "keywords": [
+        "microframework",
+        "router"
+    ],
     "require": {
         "php": ">=8.5"
     },
     "suggest": {
-        "ext-apcu": "Backs the default cache; without it the cache stores nothing."
+        "ext-apcu": "Backs the default cache.",
+        "ext-redis": "Alternative cache backend."
     },
     "autoload": {
-        "psr-4": {"Ham\\": "src/"}
-    },
-    "autoload-dev": {
-        "psr-4": {"Ham\\Tests\\": "tests/"}
+        "files": [
+            "ham/ham.php"
+        ]
     },
     "scripts": {
         "test": "phpunit",
