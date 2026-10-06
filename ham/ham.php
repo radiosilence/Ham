@@ -1,469 +1,483 @@
 <?php
 
-class Ham {
+// Handlers are called from this file, so it keeps coercive typing: route captures
+// arrive as strings, and handlers may still declare int or float parameters.
 
-    public $routes;
-    public $config;
-    public $name;
-    public $cache;
-    public $logger;
-    public $parent;
-    public $prefix;
-    public $layout = null;
-    public $template_paths = array('./templates/');
+class Ham
+{
+    private const array TYPES = [
+        'int' => '([0-9\-]+)',
+        'float' => '([0-9\.\-]+)',
+        'string' => '([a-zA-Z0-9\-_]+)',
+        'path' => '([a-zA-Z0-9\-_\/.]+)',
+    ];
+
+    /** @var list<array{uri: string, callback: callable, request_methods: list<string>|null, wildcard: bool, compiled: string}> */
+    public array $routes = [];
+
+    /** @var array<string, mixed> */
+    public array $config = [];
+
+    public HamCache $cache;
+
+    public ?HamLogger $logger = null;
+
+    public ?Ham $parent = null;
+
+    public ?string $prefix = null;
+
+    /** Layout for render(); null means layout.php, false disables it. */
+    public string|false|null $layout = null;
+
+    /** @var list<string> */
+    public array $template_paths = ['./templates/'];
+
+    private ?Closure $errorFunc = null;
+
+    private ?string $errorMessage = null;
 
     /**
-     * Create a Ham application.
-     * @param string $name a canonical name for this app. Must not be shared between apps or cache collisions will happen. Unless you want that.
-     * @param mixed $cache
-     * @param bool $log
+     * @param string $name A canonical name for this app. Must not be shared between apps or cache collisions will happen. Unless you want that.
+     * @param HamCache|false|null $cache Detected with create_cache() when not given.
+     * @param string|false|null $log Path of a log file to write to.
      */
-    public function __construct($name='default', $cache=False, $log=False) {
-        $this->name = $name;
-        if($cache === False) {
-            $cache = static::create_cache($this->name);
-        }
-        $this->cache = $cache;
-        if($log) {
+    public function __construct(
+        public string $name = 'default',
+        HamCache|false|null $cache = false,
+        string|false|null $log = false,
+    ) {
+        $this->cache = $cache ?: static::create_cache($name);
+        if ($log) {
             $this->logger = static::create_logger($log);
         }
     }
 
     /**
-     * Add routes
-     * @param $uri
-     * @param $callback
-     * @param array $request_methods
-     * @return bool
+     * Add a route, or mount another app beneath it.
+     *
+     * Routes accept any request method unless given a list. A mounted app dispatches
+     * the rest of the path itself.
+     *
+     * @param list<string>|null $request_methods
      */
-    public function route($uri, $callback, $request_methods=array('GET')) {
-        if($this === $callback) {
-            return False;
+    public function route(string $uri, callable $callback, ?array $request_methods = null): bool
+    {
+        if ($callback === $this) {
+            return false;
         }
-        $wildcard = False;
-        if($callback instanceof Ham) {
+        $wildcard = $callback instanceof self;
+        if ($wildcard) {
             $callback->prefix = $uri;
-            $wildcard = True;
+            $callback->parent = $this;
         }
 
-        $this->routes[] = array(
+        $this->routes[] = [
             'uri' => $uri,
             'callback' => $callback,
-            'request_methods' => $request_methods,
-            'wildcard' => $wildcard
-        );
+            'request_methods' => $request_methods === null ? null : array_map(strtoupper(...), $request_methods),
+            'wildcard' => $wildcard,
+            'compiled' => self::compile_route($uri, $wildcard),
+        ];
 
         return true;
     }
 
-    /**
-     * Calls route and outputs it to STDOUT
-     */
-    public function run() {
-        echo $this();
-    }
-
-    /**
-     * Invoke method allows the application to be mounted as a closure.
-     * @param mixed|bool $app parent application that can be referenced by $app->parent
-     * @return mixed|string
-     */
-    public function __invoke($app=False) {
-        $this->parent = $app;
-        return $this->_route($_SERVER['REQUEST_URI']);
-    }
-
-    /**
-	* Exists only as a function to fill as a setter for 
-	* A developer to add custom 404 pages
-	* If a log message is set, it will append the error functio
-	* to the developer-defined one. 
-    */
-
-    public function onError($closure_callback,$logMessage=NULL) {
-    	if($logMessage) {
-    		$closure_callback = function(){
-    			call_user_func($closure_callback);
-    			$this->error($logMessage);
-    		};
-    	}
-		$this->errorFunc = $closure_callback;
-
-    }
-
-    /**
-	* Called upon when 404 is deduced to be the only outcome
-    */
-
-    protected function page_not_found() {
-    	if(isset($this->errorFunc)){
-    		header("HTTP/1.0 404 Not Found");
-    		return call_user_func($this->errorFunc);  // Dev defined Error
-    	} else {
-    		return static::abort(404); 			      // Generic Error
-    	}
-    }
-
-    /**
-     * Makes sure the routes are compiled then scans through them
-     * and calls whichever one is approprate.
-     */
-    protected function _route($request_uri) {
-        $uri = parse_url(str_replace($this->config['APP_URI'], '', $request_uri));
-        $path = $uri['path'];
-        $_k = "found_uri:{$path}";
-        $found = $this->cache->get($_k);
-        if(!$found) {
-            $found = $this->_find_route($path);
-            $this->cache->set($_k, $found, 10);
+    /** Respond to the current request. */
+    public function run(): void
+    {
+        $response = $this();
+        if ($response !== null && !is_scalar($response) && !$response instanceof Stringable) {
+            throw new UnexpectedValueException('Handlers must return a string, number, Stringable or null, not ' . get_debug_type($response) . '.');
         }
-        if(!$found) {
-            return $this->page_not_found();
-        }
-        $found['args'][0] = $this;
-        return call_user_func_array($found['callback'], $found['args']);
+        echo $response;
     }
 
+    /**
+     * Dispatch the current request and return the handler's result.
+     *
+     * @param Ham|false|null $app Parent application, available to handlers as $app->parent.
+     */
+    public function __invoke(Ham|false|null $app = false): mixed
+    {
+        if ($app instanceof self) {
+            $this->parent = $app;
+        }
 
-    protected function _find_route($path) {
-        $compiled = $this->_get_compiled_routes();
-        foreach($compiled as $route) {
-            if(preg_match($route['compiled'], $path, $args)) {
-                $found = array(
-                    'callback' => $route['callback'],
-                    'args' => $args
-                );
-                return $found;
+        $uri = $_SERVER['REQUEST_URI'] ?? null;
+        $method = $_SERVER['REQUEST_METHOD'] ?? null;
+        $base = $this->config['APP_URI'] ?? '';
+
+        $path = (is_string($uri) ? $uri : '/')
+            |> (static fn ($uri) => parse_url($uri, PHP_URL_PATH) ?: '/')
+            |> rawurldecode(...);
+
+        foreach ([is_string($base) ? rtrim($base, '/') : '', rtrim($this->prefix ?? '', '/')] as $strip) {
+            if ($strip !== '' && str_starts_with($path, $strip)) {
+                $path = substr($path, strlen($strip)) ?: '/';
             }
         }
-        return False;
+
+        return $this->dispatch(is_string($method) ? strtoupper($method) : 'GET', $path);
     }
 
-    protected function _get_compiled_routes() {
-        $_k = 'compiled_routes';
-        $compiled = $this->cache->get($_k);
-        if($compiled)
-            return $compiled;
+    /** Set the response for unmatched paths. If $logMessage is given, it is logged as an error each time. */
+    public function onError(callable $closure_callback, ?string $logMessage = null): void
+    {
+        $this->errorFunc = $closure_callback(...);
+        $this->errorMessage = $logMessage;
+    }
 
-        $compiled = array();
-        foreach($this->routes as $route) {
-            $route['compiled'] = $this->_compile_route($route['uri'], $route['wildcard']);
-            $compiled[] = $route;
+    private function dispatch(string $method, string $path): mixed
+    {
+        $methodMismatch = false;
+
+        foreach ($this->routes as $route) {
+            if (!preg_match($route['compiled'], $path, $matches)) {
+                continue;
+            }
+            $args = array_slice($matches, 1);
+            if ($route['callback'] instanceof self) {
+                return $route['callback']->dispatch($method, array_pop($args) ?: '/');
+            }
+            if (!self::allows($route['request_methods'], $method)) {
+                $methodMismatch = true;
+                continue;
+            }
+
+            return ($route['callback'])($this, ...$args);
         }
-        $this->cache->set($_k, $compiled);
-        return $compiled;
+
+        if ($methodMismatch) {
+            return $this->abort(405);
+        }
+        if ($this->errorFunc === null) {
+            return $this->abort(404);
+        }
+
+        http_response_code(404);
+        if ($this->errorMessage !== null) {
+            $this->logger?->error($this->errorMessage);
+        }
+
+        return ($this->errorFunc)($this);
+    }
+
+    /** @param list<string>|null $methods */
+    private static function allows(?array $methods, string $method): bool
+    {
+        return $methods === null
+            || in_array($method, $methods, true)
+            || ($method === 'HEAD' && in_array('GET', $methods, true));
+    }
+
+    /** Compile a route such as `/add/<int>/<int>` to a regular expression. */
+    private static function compile_route(string $uri, bool $wildcard): string
+    {
+        $parts = preg_split('/<(int|float|string|path)>/', rtrim($uri, '/'), flags: PREG_SPLIT_DELIM_CAPTURE) ?: [];
+        $regex = '';
+        foreach ($parts as $i => $part) {
+            $regex .= $i % 2 === 1 ? self::TYPES[$part] : preg_quote($part, '#');
+        }
+
+        return $wildcard ? "#^{$regex}((?:/.*)?)$#" : "#^{$regex}/?$#";
     }
 
     /**
-     * Takes a route in simple syntax and makes it into a regular expression.
+     * Render a template without the layout. Templates are PHP files with $data extracted into scope.
+     *
+     * @param array<string, mixed>|null $data
      */
-    protected function _compile_route($uri, $wildcard) {
-        $route = $this->_escape_route_uri(rtrim($uri, '/'));
-        $types = array(
-            '<int>' => '([0-9\-]+)',
-            '<float>' => '([0-9\.\-]+)',
-            '<string>' => '([a-zA-Z0-9\-_]+)',
-            '<path>' => '([a-zA-Z0-9\-_\/])'
+    #[\NoDiscard]
+    public function partial(string $view, ?array $data = null): string
+    {
+        $path = array_find(
+            array_map(static fn ($dir) => $dir . $view, $this->template_paths),
+            static fn ($path) => is_file($path),
         );
-        foreach($types as $k => $v) {
-            $route =  str_replace(preg_quote($k), $v, $route);
+        if ($path === null) {
+            return $this->abort(500, 'Template not found');
         }
-        if($wildcard)
-            $wc = '(.*)?';
-        else
-            $wc = '';
-        $ret = '/^' . $this->_escape_route_uri($this->prefix) . $route . '\/?' . $wc . '$/';
-        return  $ret;
-    }
 
-    protected function _escape_route_uri($uri) {
-        return str_replace('/', '\/', preg_quote($uri));
-    }
-
-    public function partial($view, $data = null) {
-        $path = $this->_get_template_path($view);
-        if(!$path)
-              return static::abort(500, 'Template not found');
+        $include = function (string $__path, array $__data): void {
+            extract($__data, EXTR_SKIP);
+            require $__path;
+        };
 
         ob_start();
-        if(is_array($data))
-            extract($data);
-        require $path;
-        return trim(ob_get_clean());
-    }
+        try {
+            $include($path, $data ?? []);
 
-    /**
-       * Returns the contents of a template, populated with the data given to it.
-       */
-    public function render($view, $data = null, $layout = null) {
-        $content =  $this->partial($view, $data);
-
-        if ($layout !== false) {
-
-            if ($layout == null) {
-                $layout = ($this->layout == null) ? 'layout.php' : $this->layout;
-            }
-
-            $data['content'] = $content;
-            return $this->partial($layout, $data);
-        } else {
-            return $content;
+            return trim((string) ob_get_contents());
+        } finally {
+            ob_end_clean();
         }
     }
 
-    public function json($obj, $code = 200) {
+    /**
+     * Render a template inside a layout, which receives the result as $content.
+     *
+     * @param array<string, mixed>|null $data
+     * @param string|false|null $layout Overrides $this->layout; false renders without one.
+     */
+    #[\NoDiscard]
+    public function render(string $view, ?array $data = null, string|false|null $layout = null): string
+    {
+        $content = $this->partial($view, $data);
+        $layout ??= $this->layout ?? 'layout.php';
+        if ($layout === false) {
+            return $content;
+        }
+
+        return $this->partial($layout, [...$data ?? [], 'content' => $content]);
+    }
+
+    /** Send $obj as JSON and end the request. */
+    public function json(mixed $obj, int $code = 200): never
+    {
         header('Content-type: application/json', true, $code);
-        echo json_encode($obj);
+        echo json_encode($obj, JSON_THROW_ON_ERROR);
         exit;
     }
 
+    /** Merge in configuration from a PHP file, which may either declare variables or return an array. */
+    public function config_from_file(string $filename): bool
+    {
+        $config = (static function (string $__file): array {
+            $__returned = require $__file;
+            $__vars = get_defined_vars();
+            unset($__vars['__file'], $__vars['__returned']);
 
-    /**
-     * Configure an application object from a file.
-     */
-    public function config_from_file($filename) {
-        $_k = 'config';
-        $this->config = $this->cache->get($_k);
-        if($this->config) {
-            return True;
-        }
-        require($filename);
-        $conf = get_defined_vars();
-        unset($conf['filename']);
-        foreach($conf as $k => $v) {
-            $this->config[$k] = $v;
-        }
-        $this->cache->set($_k, $this->config);
+            return is_array($__returned) ? [...$__vars, ...$__returned] : $__vars;
+        })($filename);
+
+        /** @var array<string, mixed> $config */
+        $this->config = [...$this->config, ...$config];
 
         return true;
     }
 
-    /**
-     * Allows configuration file to be specified by environment variable,
-     * to make deployment easy.
-     */
-    public function config_from_env($var) {
-        return $this->config_from_file($_ENV[$var]);
-    }
-
-    protected function _get_template_path($name) {
-        $_k = "template_path:{$name}";
-        $path = $this->cache->get($_k);
-        if($path)
-            return $path;
-        foreach($this->template_paths as $dir) {
-            $path = $dir . $name;
-            if(file_exists($path)) {
-                $this->cache->set($_k, $path);
-                return $path;
-            }
+    /** Load configuration from the file named by an environment variable, so deployments choose their own. */
+    public function config_from_env(string $var): bool
+    {
+        $filename = $_ENV[$var] ?? getenv($var);
+        if (!is_string($filename) || $filename === '') {
+            throw new RuntimeException("Environment variable {$var} is not set.");
         }
-        return False;
+
+        return $this->config_from_file($filename);
     }
 
-    /**
-     * static version of abort
-     * to allow for calling of abort by class
-     * @param integer $code
-     * @param string $message
-     * @param Ham $app
-     * @return string
-     */
-    public static function _abort($code, $message='',$app=null) {
-        if(php_sapi_name() != 'cli')
-            header("Status: {$code}", False, $code);
-        $name = !is_null($app) ? 
-                $app->name : 
-                'App not set, call this function from the app or explicitly pass the $app as the last argument';
+    /** Set the response status and return an error page, for callers without an app instance. */
+    #[\NoDiscard]
+    public static function _abort(int $code, string $message = '', ?Ham $app = null): string
+    {
+        http_response_code($code);
+        $name = $app->name ?? 'App not set, call this function from the app or explicitly pass the $app as the last argument';
+
         return "<h1>{$code}</h1><p>{$message}</p><p>{$name}</p>";
     }
 
-    /**
-     * application specific Cancel method
-     * @param integer $code
-     * @param string $message
-     * @return string
-     */
-    public function abort($code,$message=''){
-        return self::_abort($code,$message,$this);
+    /** Set the response status and return an error page naming this app. */
+    #[\NoDiscard]
+    public function abort(int $code, string $message = ''): string
+    {
+        return self::_abort($code, $message, $this);
     }
 
-    /**
-     * Cache factory, be it XCache or APC.
-     */
-    public static function create_cache($prefix, $dummy=False,$redisFirst=False) {
-        if($redisFirst){
-            if(class_exists("Redis") && !$dummy){
-                return new RedisCache($prefix);
-            }else if(function_exists('xcache_set') && !$dummy) {
-                return new XCache($prefix);
-            } else if(function_exists('apc_fetch') && !$dummy) {
-                return new APC($prefix);
-            } else {
-                return new Dummy($prefix);
-            }
-        }else{
-            if(function_exists('xcache_set') && !$dummy) {
-                return new XCache($prefix);
-            } else if(function_exists('apc_fetch') && !$dummy) {
-                return new APC($prefix);
-            } else if(class_exists("Redis") && !$dummy){
-                return new RedisCache($prefix);
-            } else {
-                return new Dummy($prefix);
-            }
-        }
+    /** Cache factory: APCu when enabled, then Redis, falling back to a cache that stores nothing. */
+    public static function create_cache(string $prefix, bool $dummy = false, bool $redisFirst = false): HamCache
+    {
+        $apcu = function_exists('apcu_enabled') && apcu_enabled();
+        $redis = class_exists('Redis');
+
+        return match (true) {
+            $dummy => new Dummy($prefix),
+            $redisFirst && $redis => new RedisCache($prefix),
+            $apcu => new APC($prefix),
+            $redis => new RedisCache($prefix),
+            default => new Dummy($prefix),
+        };
     }
 
-    /**
-     * Logger factory; just FileLogger for now.
-     */
-    public static function create_logger($log_file) {
-        if (!file_exists($log_file)) {
-            if (is_writable(dirname($log_file))) {
-                touch($log_file);
-            } else {
-                static::abort(500, "Log file couldn't be created.");
-            }
+    /** Logger factory; creates the file if needed. */
+    public static function create_logger(string $log_file): HamLogger
+    {
+        if (!file_exists($log_file) && (!is_writable(dirname($log_file)) || !touch($log_file))) {
+            throw new RuntimeException("Log file couldn't be created: {$log_file}");
         }
-
         if (!is_writable($log_file)) {
-            static::abort(500, "Log file isn't writable.");
+            throw new RuntimeException("Log file isn't writable: {$log_file}");
         }
 
         return new FileLogger($log_file);
     }
 }
 
-class XCache extends HamCache {
-    public function get($key) {
-        return xcache_get($this->_p($key));
+abstract class HamCache
+{
+    public function __construct(public string|false $prefix = false) {}
+
+    protected function _p(string $key): string
+    {
+        return $this->prefix ? "{$this->prefix}:{$key}" : $key;
     }
-    public function set($key, $value, $ttl=1) {
-        return xcache_set($this->_p($key), $value, $ttl);
-    }
-    public function inc($key, $interval=1) {
-        return xcache_inc($this->_p($key), $interval);
-    }
-    public function dec($key, $interval=1) {
-        return xcache_dec($this->_p($key), $interval);
-    }
+
+    abstract public function set(string $key, mixed $value, int $ttl = 1): bool;
+
+    /** Returns false on a miss. */
+    abstract public function get(string $key): mixed;
+
+    abstract public function inc(string $key, int $interval = 1): int|false;
+
+    abstract public function dec(string $key, int $interval = 1): int|false;
 }
 
-class APC extends HamCache {
-    public function get($key) {
-        if(!apc_exists($this->_p($key)))
-            return False;
-        return apc_fetch($this->_p($key));
+/** APCu, the successor to APC. */
+class APC extends HamCache
+{
+    #[\Override]
+    public function get(string $key): mixed
+    {
+        $value = apcu_fetch($this->_p($key), $found);
+
+        return $found ? $value : false;
     }
-    public function set($key, $value, $ttl=1) {
+
+    #[\Override]
+    public function set(string $key, mixed $value, int $ttl = 1): bool
+    {
         try {
-            return apc_store($this->_p($key), $value, $ttl);
-        } catch(Exception $e) {
-            apc_delete($this->_p($key));
-            return False;
+            return apcu_store($this->_p($key), $value, $ttl);
+        } catch (Exception) {
+            apcu_delete($this->_p($key));
+
+            return false;
         }
     }
-    public function inc($key, $interval=1) {
-        return apc_inc($this->_p($key), $interval);
+
+    #[\Override]
+    public function inc(string $key, int $interval = 1): int|false
+    {
+        return apcu_inc($this->_p($key), $interval);
     }
-    public function dec($key, $interval=1) {
-        return apc_dec($this->_p($key), $interval);
+
+    #[\Override]
+    public function dec(string $key, int $interval = 1): int|false
+    {
+        return apcu_dec($this->_p($key), $interval);
     }
 }
 
-class RedisCache extends HamCache{
-    public function __construct($prefix=false,$host="127.0.0.1"){
+/** Stores strings and numbers; other values are converted by phpredis. */
+class RedisCache extends HamCache
+{
+    private Redis $conn;
+
+    public function __construct(string|false $prefix = false, string $host = '127.0.0.1')
+    {
         parent::__construct($prefix);
-        $this->_conn = new Redis();
-        $this->_conn->connect($host);
+        $this->conn = new Redis();
+        $this->conn->connect($host);
     }
 
-    public function get($key){
-        return $this->_conn->get($this->_p($key));
+    #[\Override]
+    public function get(string $key): mixed
+    {
+        return $this->conn->get($this->_p($key));
     }
-    public function set($key, $val,$ttl=false){
-        $ttl = $ttl ?  $ttl*1000 : null;
-        if(is_null($ttl)){
-            return $this->_conn->set($this->_p($key),$val);
-        }else{
-            return $this->_conn->set($this->_p($key),$val,$ttl);
-        }
+
+    /** A $ttl of 0 keeps the value until evicted. */
+    #[\Override]
+    public function set(string $key, mixed $value, int $ttl = 0): bool
+    {
+        return (bool) ($ttl > 0
+            ? $this->conn->setex($this->_p($key), $ttl, $value)
+            : $this->conn->set($this->_p($key), $value));
     }
-    public function inc($key,$interval=1){
-        $this->_conn->incr($this->_p($key),$interval);
-    
+
+    #[\Override]
+    public function inc(string $key, int $interval = 1): int|false
+    {
+        $value = $this->conn->incrBy($this->_p($key), $interval);
+
+        return is_int($value) ? $value : false;
     }
-    public function dec($key,$interval=1){
-        $this->_conn->decr($this->_p($key),$interval);
+
+    #[\Override]
+    public function dec(string $key, int $interval = 1): int|false
+    {
+        $value = $this->conn->decrBy($this->_p($key), $interval);
+
+        return is_int($value) ? $value : false;
     }
 }
 
-class Dummy extends HamCache {
-    public function get($key) {
-        return False;
+/** Stores nothing; the fallback when no cache backend is available. */
+class Dummy extends HamCache
+{
+    #[\Override]
+    public function get(string $key): mixed
+    {
+        return false;
     }
-    public function set($key, $value, $ttl=1) {
-        return False;
+
+    #[\Override]
+    public function set(string $key, mixed $value, int $ttl = 1): bool
+    {
+        return false;
     }
-    public function inc($key, $interval=1) {
-        return False;
+
+    #[\Override]
+    public function inc(string $key, int $interval = 1): int|false
+    {
+        return false;
     }
-    public function dec($key, $interval=1) {
-        return False;
+
+    #[\Override]
+    public function dec(string $key, int $interval = 1): int|false
+    {
+        return false;
     }
 }
 
-abstract class HamCache {
-    public $prefix;
+abstract class HamLogger
+{
+    abstract public function error(string $message): bool;
 
-    public function __construct($prefix=False) {
-        $this->prefix = $prefix;
-    }
-    protected function _p($key) {
-        if($this->prefix)
-            return $this->prefix . ':' . $key;
-        else
-            return $key;
-    }
-    abstract public function set($key, $value, $ttl=1);
-    abstract public function get($key);
-    abstract public function inc($key, $interval=1);
-    abstract public function dec($key, $interval=1);
+    abstract public function log(string $message): bool;
+
+    abstract public function info(string $message): bool;
 }
 
-class FileLogger extends HamLogger {
-    public $file;
+/** Appends tab-separated `timestamp, severity, message` lines to a file. */
+class FileLogger extends HamLogger
+{
+    public function __construct(public string $file) {}
 
-    public function __construct($file) {
-        $this->file = $file;
-    }
-
-    public function write($message, $severity) {
-        $message = date('Y-m-d H:i:s') . "\t$severity\t$message\n";
+    public function write(string $message, string $severity): bool
+    {
         if (!is_writable($this->file)) {
             return false;
         }
-        file_put_contents($this->file, $message, FILE_APPEND | LOCK_EX);
 
-        return true;
+        return file_put_contents($this->file, date('Y-m-d H:i:s') . "\t{$severity}\t{$message}\n", FILE_APPEND | LOCK_EX) !== false;
     }
 
-    public function error($message) {
+    #[\Override]
+    public function error(string $message): bool
+    {
         return $this->write($message, 'error');
     }
 
-    public function log($message) {
+    #[\Override]
+    public function log(string $message): bool
+    {
         return $this->write($message, 'log');
     }
 
-    public function info($message) {
+    #[\Override]
+    public function info(string $message): bool
+    {
         return $this->write($message, 'info');
     }
-}
-
-abstract class HamLogger {
-    abstract public function error($message);
-    abstract public function log($message);
-    abstract public function info($message);
 }

@@ -1,146 +1,247 @@
 <?php
- 
-class HamTest extends PHPUnit_Framework_TestCase {
-    protected $app;
 
-    protected function setUp() {
-        $cache1 = Ham::create_cache('default', True);
-        $app = new Ham('default', $cache1, 'log.txt');
-        $app->route('/', function($app) {
+use PHPUnit\Framework\TestCase;
+
+class HamTest extends TestCase
+{
+    protected Ham $app;
+
+    protected string $log;
+
+    protected function setUp(): void
+    {
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        $this->log = (string) tempnam(sys_get_temp_dir(), 'ham');
+
+        $cache1 = Ham::create_cache('default', true);
+        $app = new Ham('default', $cache1, $this->log);
+        $app->route('/', function ($app) {
             return 'hello world';
         });
-        $app->route('/hello/<string>', function($app, $name) {
+        $app->route('/hello/<string>', function ($app, $name) {
             return "hello {$name}";
         });
-
-        $app->route('/timestwo/<int>', function($app, $int) {
+        $app->route('/timestwo/<int>', function ($app, $int) {
             return $int * 2;
         });
-        $app->route('/add/<int>/<int>', function($app, $a, $b) {
+        $app->route('/add/<int>/<int>', function ($app, $a, $b) {
             return $a + $b;
         });
-        $app->route('/dividefloat/<float>/<float>', function($app, $a, $b) {
-            if($b == 0)
+        $app->route('/dividefloat/<float>/<float>', function ($app, $a, $b) {
+            if ($b == 0) {
                 return 'NaN';
+            }
+
             return $a / $b;
         });
 
         $beans = new Ham('beans', $cache1);
-        $beans->route('/', function($app) {
-            return "beans";
+        $beans->route('/', function ($app) {
+            return 'beans';
         });
-        $beans->route('/baked', function($app) {
-            return "yum";
+        $beans->route('/baked', function ($app) {
+            return 'yum';
+        });
+        $beans->route('/whose', function ($app) {
+            return $app->parent->name;
         });
         $app->route('/beans', $beans);
+        $app->template_paths = [__DIR__ . '/fixtures/templates/'];
         $this->app = $app;
     }
 
-    protected function tearDown() {
-
+    protected function tearDown(): void
+    {
+        unlink($this->log);
     }
 
-    public function testHelloWorld() {
-        $app = $this->app;
-        $_SERVER['REQUEST_URI'] = '/';
-        $this->assertEquals('hello world', $app());
-    }
-    public function test404() {
-        $app = $this->app;
-        $_SERVER['REQUEST_URI'] = '/asdlkad8o7';
-        $this->assertContains('404', $app());
+    private function get(string $uri): mixed
+    {
+        $_SERVER['REQUEST_URI'] = $uri;
 
+        return ($this->app)();
     }
 
-    public function testStringParameter() {
-        $app = $this->app;
-        $_SERVER['REQUEST_URI'] = '/hello/bort';
-        $this->assertContains('bort', $app());
+    public function testHelloWorld(): void
+    {
+        $this->assertEquals('hello world', $this->get('/'));
     }
 
-    public function testIntParameter() {
-        $app = $this->app;
-        $inputs = array(1, 0, 5, 3);
-        $outputs = array(2, 0, 10, 6);
-        foreach($inputs as $k => $v) {
-            $_SERVER['REQUEST_URI'] = "/timestwo/{$v}";
-            $this->assertEquals($outputs[$k], $app());
+    public function test404(): void
+    {
+        $this->assertStringContainsString('404', $this->get('/asdlkad8o7'));
+    }
+
+    public function testStringParameter(): void
+    {
+        $this->assertStringContainsString('bort', $this->get('/hello/bort'));
+    }
+
+    public function testIntParameter(): void
+    {
+        foreach ([1 => 2, 0 => 0, 5 => 10, 3 => 6] as $input => $output) {
+            $this->assertEquals($output, $this->get("/timestwo/{$input}"));
         }
     }
 
-    public function testMultiIntParameter() {
-        $app = $this->app;
-        $inputs_a = array(1, 5,  2, 6,  3);
-        $inputs_b = array(0, -2, 7, 20, -10);
-        $outputs = array( 1, 3,  9, 26, -7);
-        foreach($inputs_a as $k => $v) {
-            $_SERVER['REQUEST_URI'] = "/add/{$v}/{$inputs_b[$k]}";
-            $this->assertEquals($outputs[$k], $app());
+    public function testMultiIntParameter(): void
+    {
+        foreach ([[1, 0, 1], [5, -2, 3], [2, 7, 9], [6, 20, 26], [3, -10, -7]] as [$a, $b, $sum]) {
+            $this->assertEquals($sum, $this->get("/add/{$a}/{$b}"));
         }
     }
 
-    public function testSubAppHome() {
-        $app = $this->app;
-        $uris = array('/beans', '/beans/');
-        foreach($uris as $uri){
-            $_SERVER['REQUEST_URI'] = $uri;
-            $this->assertEquals('beans', $app());
-        }
-    }
-    public function testSubAppPage() {
-        $app = $this->app;
-        $uris = array('/beans/baked', '/beans/baked/');
-        foreach($uris as $uri){
-            $_SERVER['REQUEST_URI'] = $uri;
-            $this->assertEquals('yum', $app());
+    public function testSubAppHome(): void
+    {
+        foreach (['/beans', '/beans/'] as $uri) {
+            $this->assertEquals('beans', $this->get($uri));
         }
     }
 
-    public function testFloatParameter() {
-        $app = $this->app;
-
-        $inputs_a = array(1.2, 8.3,   1.176, 0,   3);
-        $inputs_b = array(23,  -1.25,  4.2, 20,  0);
-        $outputs = array(
-            0.052173913,
-            -6.64, 
-            0.28,
-            0,
-            'NaN'
-        );
-        foreach($inputs_a as $k => $v) {
-            $_SERVER['REQUEST_URI'] = "/dividefloat/{$v}/{$inputs_b[$k]}";
-            $this->assertEquals($outputs[$k], $app());
-        }
-        $_SERVER['REQUEST_URI'] = '/dividefloat/1.6/2.5';
-        $this->assertEquals('0.64', $app());
-    }
-
-    public function testLogging() {
-        $app = $this->app;
-
-        foreach ( array('log', 'info', 'error') as $type ) {
-            $pre_lines = count(file('log.txt'));
-
-            $app->logger->$type('message');
-
-            // First, test that a line was added
-            $post_lines = count(file('log.txt'));
-            $this->assertEquals($post_lines, $pre_lines + 1);
-
-            // ...and second, that the the line actually logged the expected value
-            $match = preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\t' . $type . '\tmessage\n/m', file_get_contents('log.txt'));
-            $this->assertEquals($match, 1);
+    public function testSubAppPage(): void
+    {
+        foreach (['/beans/baked', '/beans/baked/'] as $uri) {
+            $this->assertEquals('yum', $this->get($uri));
         }
     }
-    public function testAbortHasName(){
-        $app = $this->app;
-        $this->assertContains($app->name,$app->abort(401,'error'));    
+
+    public function testFloatParameter(): void
+    {
+        foreach ([[1.2, 23, 0.052173913], [8.3, -1.25, -6.64], [1.176, 4.2, 0.28], [0, 20, 0], [1.6, 2.5, 0.64]] as [$a, $b, $quotient]) {
+            $this->assertEqualsWithDelta($quotient, $this->get("/dividefloat/{$a}/{$b}"), 1e-9);
+        }
+        $this->assertEquals('NaN', $this->get('/dividefloat/3/0'));
     }
 
-    public function testStaticAbortHasNoName(){
-        $app = $this->app;
-        $cls = get_class($app);
-        $this->assertContains('App not set, call this function from the app or explicitly pass the $app as the last argument',$cls::_abort(404,'error'));
+    public function testLogging(): void
+    {
+        foreach (['log', 'info', 'error'] as $type) {
+            $pre_lines = count(file($this->log) ?: []);
+
+            $this->app->logger?->$type('message');
+
+            $this->assertCount($pre_lines + 1, file($this->log) ?: []);
+            $this->assertMatchesRegularExpression("/^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\t{$type}\tmessage\n/m", (string) file_get_contents($this->log));
+        }
+    }
+
+    public function testAbortHasName(): void
+    {
+        $this->assertStringContainsString($this->app->name, $this->app->abort(401, 'error'));
+    }
+
+    public function testStaticAbortHasNoName(): void
+    {
+        $this->assertStringContainsString('App not set, call this function from the app or explicitly pass the $app as the last argument', Ham::_abort(404, 'error'));
+    }
+
+    public function testCapturesArriveAsStrings(): void
+    {
+        $this->app->route('/type/<int>', fn ($app, $n) => get_debug_type($n));
+
+        $this->assertSame('string', $this->get('/type/5'));
+    }
+
+    public function testTypedHandlerParameters(): void
+    {
+        $this->app->route('/typed/<int>/<float>', fn (Ham $app, int $n, float $f) => $n * $f);
+
+        $this->assertEqualsWithDelta(7.5, $this->get('/typed/3/2.5'), 1e-9);
+    }
+
+    public function testPathParameter(): void
+    {
+        $this->app->route('/files/<path>', fn ($app, $path) => $path);
+
+        $this->assertSame('a/b/c.txt', $this->get('/files/a/b/c.txt'));
+    }
+
+    public function testQueryStringIsIgnored(): void
+    {
+        $this->assertSame('hello world', $this->get('/?page=2'));
+    }
+
+    public function testSubAppSeesParent(): void
+    {
+        $this->assertSame('default', $this->get('/beans/whose'));
+    }
+
+    public function testMountRequiresSegmentBoundary(): void
+    {
+        $this->assertStringContainsString('404', $this->get('/beansprout'));
+    }
+
+    public function testCannotMountOnItself(): void
+    {
+        $this->assertFalse($this->app->route('/me', $this->app));
+    }
+
+    public function testRoutesAcceptAnyMethodByDefault(): void
+    {
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+
+        $this->assertSame('hello world', $this->get('/'));
+    }
+
+    public function testExplicitMethodsAreEnforced(): void
+    {
+        $this->app->route('/submit', fn () => 'submitted', ['post']);
+
+        $this->assertStringContainsString('405', $this->get('/submit'));
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $this->assertSame('submitted', $this->get('/submit'));
+    }
+
+    public function testHeadIsAllowedOnGetRoutes(): void
+    {
+        $this->app->route('/page', fn () => 'page', ['GET']);
+        $_SERVER['REQUEST_METHOD'] = 'HEAD';
+
+        $this->assertSame('page', $this->get('/page'));
+    }
+
+    public function testOnError(): void
+    {
+        $this->app->onError(fn () => 'Burnt Bacon.', 'Page not found.');
+
+        $this->assertSame('Burnt Bacon.', $this->get('/nope'));
+        $this->assertStringContainsString("error\tPage not found.", (string) file_get_contents($this->log));
+    }
+
+    public function testAppUri(): void
+    {
+        $this->app->config['APP_URI'] = '/sub/dir';
+
+        $this->assertSame('hello bort', $this->get('/sub/dir/hello/bort'));
+        $this->assertSame('hello world', $this->get('/sub/dir'));
+    }
+
+    public function testRenderWrapsInLayout(): void
+    {
+        $this->assertSame('<main>Hello, bort!</main>', $this->app->render('hello.php', ['name' => 'bort']));
+    }
+
+    public function testRenderWithoutLayout(): void
+    {
+        $this->assertSame('Hello, bort!', $this->app->render('hello.php', ['name' => 'bort'], false));
+    }
+
+    public function testMissingTemplate(): void
+    {
+        $this->assertStringContainsString('Template not found', $this->app->partial('missing.php'));
+    }
+
+    public function testConfigFromVariables(): void
+    {
+        $this->app->config_from_file(__DIR__ . '/fixtures/settings.php');
+
+        $this->assertSame(['DEBUG' => true, 'APP_NAME' => 'Testing Application', 'DOMAIN_NAME' => 'localhost'], $this->app->config);
+    }
+
+    public function testConfigFromReturnedArray(): void
+    {
+        $this->app->config_from_file(__DIR__ . '/fixtures/settings_array.php');
+
+        $this->assertSame(['DEBUG' => false], $this->app->config);
     }
 }

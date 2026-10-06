@@ -1,5 +1,6 @@
-vendor/*
-examples/twig_example/vendor/*
-*.lock
-
-
+vendor/
+composer.lock
+.phpunit.cache/
+examples/*/vendor/
+*.log
+.phpunit.result.cache
