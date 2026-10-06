@@ -2,9 +2,6 @@
 
 // Handlers are called from this file, so it keeps coercive typing: route captures
 // arrive as strings, and handlers may still declare int or float parameters.
-//
-// Public methods and properties carry their types in docblocks rather than natively,
-// so that existing subclasses which redeclare or override them remain compatible.
 
 class Ham
 {
@@ -16,31 +13,24 @@ class Ham
     ];
 
     /** @var list<array{uri: string, callback: callable, request_methods: list<string>|null, wildcard: bool, compiled: string}> */
-    public $routes = [];
+    public array $routes = [];
 
     /** @var array<string, mixed> */
-    public $config = [];
+    public array $config = [];
 
-    /** @var string */
-    public $name;
+    public HamCache $cache;
 
-    /** @var HamCache */
-    public $cache;
+    public ?HamLogger $logger = null;
 
-    /** @var HamLogger|null */
-    public $logger;
+    public ?Ham $parent = null;
 
-    /** @var Ham|null */
-    public $parent;
+    public ?string $prefix = null;
 
-    /** @var string|null */
-    public $prefix;
-
-    /** @var string|false|null Layout for render(); null means layout.php, false disables it. */
-    public $layout = null;
+    /** Layout for render(); null means layout.php, false disables it. */
+    public string|false|null $layout = null;
 
     /** @var list<string> */
-    public $template_paths = ['./templates/'];
+    public array $template_paths = ['./templates/'];
 
     private ?Closure $errorFunc = null;
 
@@ -51,9 +41,11 @@ class Ham
      * @param HamCache|false|null $cache Detected with create_cache() when not given.
      * @param string|false|null $log Path of a log file to write to.
      */
-    public function __construct(string $name = 'default', HamCache|false|null $cache = false, string|false|null $log = false)
-    {
-        $this->name = $name;
+    public function __construct(
+        public string $name = 'default',
+        HamCache|false|null $cache = false,
+        string|false|null $log = false,
+    ) {
         $this->cache = $cache ?: static::create_cache($name);
         if ($log) {
             $this->logger = static::create_logger($log);
@@ -67,9 +59,8 @@ class Ham
      * the rest of the path itself.
      *
      * @param list<string>|null $request_methods
-     * @return bool
      */
-    public function route(string $uri, callable $callback, ?array $request_methods = null)
+    public function route(string $uri, callable $callback, ?array $request_methods = null): bool
     {
         if ($callback === $this) {
             return false;
@@ -91,12 +82,8 @@ class Ham
         return true;
     }
 
-    /**
-     * Respond to the current request.
-     *
-     * @return void
-     */
-    public function run()
+    /** Respond to the current request. */
+    public function run(): void
     {
         $response = $this();
         if ($response !== null && !is_scalar($response) && !$response instanceof Stringable) {
@@ -109,9 +96,8 @@ class Ham
      * Dispatch the current request and return the handler's result.
      *
      * @param Ham|false|null $app Parent application, available to handlers as $app->parent.
-     * @return mixed
      */
-    public function __invoke($app = false)
+    public function __invoke(Ham|false|null $app = false): mixed
     {
         if ($app instanceof self) {
             $this->parent = $app;
@@ -134,12 +120,8 @@ class Ham
         return $this->dispatch(is_string($method) ? strtoupper($method) : 'GET', $path);
     }
 
-    /**
-     * Set the response for unmatched paths. If $logMessage is given, it is logged as an error each time.
-     *
-     * @return void
-     */
-    public function onError(callable $closure_callback, ?string $logMessage = null)
+    /** Set the response for unmatched paths. If $logMessage is given, it is logged as an error each time. */
+    public function onError(callable $closure_callback, ?string $logMessage = null): void
     {
         $this->errorFunc = $closure_callback(...);
         $this->errorMessage = $logMessage;
@@ -204,10 +186,9 @@ class Ham
      * Render a template without the layout. Templates are PHP files with $data extracted into scope.
      *
      * @param array<string, mixed>|null $data
-     * @return string
      */
     #[\NoDiscard]
-    public function partial(string $view, ?array $data = null)
+    public function partial(string $view, ?array $data = null): string
     {
         $path = array_find(
             array_map(static fn ($dir) => $dir . $view, $this->template_paths),
@@ -237,10 +218,9 @@ class Ham
      *
      * @param array<string, mixed>|null $data
      * @param string|false|null $layout Overrides $this->layout; false renders without one.
-     * @return string
      */
     #[\NoDiscard]
-    public function render(string $view, ?array $data = null, string|false|null $layout = null)
+    public function render(string $view, ?array $data = null, string|false|null $layout = null): string
     {
         $content = $this->partial($view, $data);
         $layout ??= $this->layout ?? 'layout.php';
@@ -251,24 +231,16 @@ class Ham
         return $this->partial($layout, [...$data ?? [], 'content' => $content]);
     }
 
-    /**
-     * Send $obj as JSON and end the request.
-     *
-     * @return never
-     */
-    public function json(mixed $obj, int $code = 200)
+    /** Send $obj as JSON and end the request. */
+    public function json(mixed $obj, int $code = 200): never
     {
         header('Content-type: application/json', true, $code);
         echo json_encode($obj, JSON_THROW_ON_ERROR);
         exit;
     }
 
-    /**
-     * Merge in configuration from a PHP file, which may either declare variables or return an array.
-     *
-     * @return bool
-     */
-    public function config_from_file(string $filename)
+    /** Merge in configuration from a PHP file, which may either declare variables or return an array. */
+    public function config_from_file(string $filename): bool
     {
         $config = (static function (string $__file): array {
             $__returned = require $__file;
@@ -284,12 +256,8 @@ class Ham
         return true;
     }
 
-    /**
-     * Load configuration from the file named by an environment variable, so deployments choose their own.
-     *
-     * @return bool
-     */
-    public function config_from_env(string $var)
+    /** Load configuration from the file named by an environment variable, so deployments choose their own. */
+    public function config_from_env(string $var): bool
     {
         $filename = $_ENV[$var] ?? getenv($var);
         if (!is_string($filename) || $filename === '') {
@@ -299,13 +267,9 @@ class Ham
         return $this->config_from_file($filename);
     }
 
-    /**
-     * Set the response status and return an error page, for callers without an app instance.
-     *
-     * @return string
-     */
+    /** Set the response status and return an error page, for callers without an app instance. */
     #[\NoDiscard]
-    public static function _abort(int $code, string $message = '', ?Ham $app = null)
+    public static function _abort(int $code, string $message = '', ?Ham $app = null): string
     {
         http_response_code($code);
         $name = $app->name ?? 'App not set, call this function from the app or explicitly pass the $app as the last argument';
@@ -313,23 +277,15 @@ class Ham
         return "<h1>{$code}</h1><p>{$message}</p><p>{$name}</p>";
     }
 
-    /**
-     * Set the response status and return an error page naming this app.
-     *
-     * @return string
-     */
+    /** Set the response status and return an error page naming this app. */
     #[\NoDiscard]
-    public function abort(int $code, string $message = '')
+    public function abort(int $code, string $message = ''): string
     {
         return self::_abort($code, $message, $this);
     }
 
-    /**
-     * Cache factory: APCu when enabled, then Redis, falling back to a cache that stores nothing.
-     *
-     * @return HamCache
-     */
-    public static function create_cache(string $prefix, bool $dummy = false, bool $redisFirst = false)
+    /** Cache factory: APCu when enabled, then Redis, falling back to a cache that stores nothing. */
+    public static function create_cache(string $prefix, bool $dummy = false, bool $redisFirst = false): HamCache
     {
         $apcu = function_exists('apcu_enabled') && apcu_enabled();
         $redis = class_exists('Redis');
@@ -343,12 +299,8 @@ class Ham
         };
     }
 
-    /**
-     * Logger factory; creates the file if needed.
-     *
-     * @return HamLogger
-     */
-    public static function create_logger(string $log_file)
+    /** Logger factory; creates the file if needed. */
+    public static function create_logger(string $log_file): HamLogger
     {
         if (!file_exists($log_file) && (!is_writable(dirname($log_file)) || !touch($log_file))) {
             throw new RuntimeException("Log file couldn't be created: {$log_file}");
@@ -363,38 +315,28 @@ class Ham
 
 abstract class HamCache
 {
-    /** @var string|false */
-    public $prefix;
+    public function __construct(public string|false $prefix = false) {}
 
-    public function __construct(string|false $prefix = false)
-    {
-        $this->prefix = $prefix;
-    }
-
-    /** @return string */
-    protected function _p(string $key)
+    protected function _p(string $key): string
     {
         return $this->prefix ? "{$this->prefix}:{$key}" : $key;
     }
 
-    /** @return bool */
-    abstract public function set(string $key, mixed $value, int $ttl = 1);
+    abstract public function set(string $key, mixed $value, int $ttl = 1): bool;
 
-    /** @return mixed False on a miss. */
-    abstract public function get(string $key);
+    /** Returns false on a miss. */
+    abstract public function get(string $key): mixed;
 
-    /** @return int|false */
-    abstract public function inc(string $key, int $interval = 1);
+    abstract public function inc(string $key, int $interval = 1): int|false;
 
-    /** @return int|false */
-    abstract public function dec(string $key, int $interval = 1);
+    abstract public function dec(string $key, int $interval = 1): int|false;
 }
 
 /** APCu, the successor to APC. */
 class APC extends HamCache
 {
     #[\Override]
-    public function get(string $key)
+    public function get(string $key): mixed
     {
         $value = apcu_fetch($this->_p($key), $found);
 
@@ -402,7 +344,7 @@ class APC extends HamCache
     }
 
     #[\Override]
-    public function set(string $key, mixed $value, int $ttl = 1)
+    public function set(string $key, mixed $value, int $ttl = 1): bool
     {
         try {
             return apcu_store($this->_p($key), $value, $ttl);
@@ -414,13 +356,13 @@ class APC extends HamCache
     }
 
     #[\Override]
-    public function inc(string $key, int $interval = 1)
+    public function inc(string $key, int $interval = 1): int|false
     {
         return apcu_inc($this->_p($key), $interval);
     }
 
     #[\Override]
-    public function dec(string $key, int $interval = 1)
+    public function dec(string $key, int $interval = 1): int|false
     {
         return apcu_dec($this->_p($key), $interval);
     }
@@ -439,14 +381,14 @@ class RedisCache extends HamCache
     }
 
     #[\Override]
-    public function get(string $key)
+    public function get(string $key): mixed
     {
         return $this->conn->get($this->_p($key));
     }
 
     /** A $ttl of 0 keeps the value until evicted. */
     #[\Override]
-    public function set(string $key, mixed $value, int $ttl = 0)
+    public function set(string $key, mixed $value, int $ttl = 0): bool
     {
         return (bool) ($ttl > 0
             ? $this->conn->setex($this->_p($key), $ttl, $value)
@@ -454,7 +396,7 @@ class RedisCache extends HamCache
     }
 
     #[\Override]
-    public function inc(string $key, int $interval = 1)
+    public function inc(string $key, int $interval = 1): int|false
     {
         $value = $this->conn->incrBy($this->_p($key), $interval);
 
@@ -462,7 +404,7 @@ class RedisCache extends HamCache
     }
 
     #[\Override]
-    public function dec(string $key, int $interval = 1)
+    public function dec(string $key, int $interval = 1): int|false
     {
         $value = $this->conn->decrBy($this->_p($key), $interval);
 
@@ -474,25 +416,25 @@ class RedisCache extends HamCache
 class Dummy extends HamCache
 {
     #[\Override]
-    public function get(string $key)
+    public function get(string $key): mixed
     {
         return false;
     }
 
     #[\Override]
-    public function set(string $key, mixed $value, int $ttl = 1)
+    public function set(string $key, mixed $value, int $ttl = 1): bool
     {
         return false;
     }
 
     #[\Override]
-    public function inc(string $key, int $interval = 1)
+    public function inc(string $key, int $interval = 1): int|false
     {
         return false;
     }
 
     #[\Override]
-    public function dec(string $key, int $interval = 1)
+    public function dec(string $key, int $interval = 1): int|false
     {
         return false;
     }
@@ -500,29 +442,19 @@ class Dummy extends HamCache
 
 abstract class HamLogger
 {
-    /** @return bool */
-    abstract public function error(string $message);
+    abstract public function error(string $message): bool;
 
-    /** @return bool */
-    abstract public function log(string $message);
+    abstract public function log(string $message): bool;
 
-    /** @return bool */
-    abstract public function info(string $message);
+    abstract public function info(string $message): bool;
 }
 
 /** Appends tab-separated `timestamp, severity, message` lines to a file. */
 class FileLogger extends HamLogger
 {
-    /** @var string */
-    public $file;
+    public function __construct(public string $file) {}
 
-    public function __construct(string $file)
-    {
-        $this->file = $file;
-    }
-
-    /** @return bool */
-    public function write(string $message, string $severity)
+    public function write(string $message, string $severity): bool
     {
         if (!is_writable($this->file)) {
             return false;
@@ -532,19 +464,19 @@ class FileLogger extends HamLogger
     }
 
     #[\Override]
-    public function error(string $message)
+    public function error(string $message): bool
     {
         return $this->write($message, 'error');
     }
 
     #[\Override]
-    public function log(string $message)
+    public function log(string $message): bool
     {
         return $this->write($message, 'log');
     }
 
     #[\Override]
-    public function info(string $message)
+    public function info(string $message): bool
     {
         return $this->write($message, 'info');
     }

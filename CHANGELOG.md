@@ -6,9 +6,12 @@ Rewritten for PHP 8.5 as a drop-in replacement: the classes, methods, properties
 and configuration file format of the previous version are unchanged. The
 previous version could not run on PHP 8 at all.
 
-Public methods and properties declare parameter types natively, but return and
-property types only in docblocks. Existing subclasses that override `render()`
-or redeclare `$layout` would otherwise fail to load.
+Every method and property is natively typed. Applications that only call Ham
+need no changes; subclasses that override methods or redeclare properties must
+match the new signatures, for example
+`render(string $view, ?array $data = null, string|false|null $layout = null): string`.
+The file stays in coercive typing mode so that handlers declaring `int` or
+`float` parameters still accept the string captures.
 
 ### Changed
 

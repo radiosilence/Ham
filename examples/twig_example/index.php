@@ -7,7 +7,7 @@ class HamTwig extends Ham
     private ?\Twig\Environment $twig = null;
 
     #[\Override]
-    public function render(string $view, ?array $data = null, string|false|null $layout = null)
+    public function render(string $view, ?array $data = null, string|false|null $layout = null): string
     {
         $this->twig ??= new \Twig\Environment(new \Twig\Loader\FilesystemLoader($this->template_paths));
 
