@@ -1,42 +1,29 @@
 <?php
-require_once './vendor/autoload.php';
 
-class HamTwig extends Ham {
+declare(strict_types=1);
 
-    private $_twig_env;
+use Ham\App;
+use Twig\Environment;
+use Twig\Loader\FilesystemLoader;
 
-    public function __construct($name,$cache=null,$logger=null){
-        $this->_twig_env = new Twig_Environment(new Twig_Loader_Filesystem($this->template_paths));
-        parent::__construct();
+require __DIR__ . '/vendor/autoload.php';
+
+final class TwigApp extends App
+{
+    private Environment $twig {
+        get => $this->twig ??= new Environment(new FilesystemLoader($this->templatePaths));
     }
 
-    public function render($view,$data,$layout=null){
-        return $this->_twig_env->render($view,$data);
+    #[\Override]
+    public function render(string $view, array $data = [], string|false|null $layout = null): string
+    {
+        return $this->twig->render($view, $data);
     }
 }
 
+$app = new TwigApp('app')
+    ->route('/', fn (App $app) => $app->render('home.html', ['page_title' => 'home', 'content' => 'hi from the home page']))
+    ->route('/<string>', fn (App $app, string $title) => $app->render('home.html', ['page_title' => $title, 'content' => "hi from the {$title} page"]));
 
-
-$app = new HamTwig('app',false,"logger");
-
-
-$app->route('/',function() use ($app) {
-    $title = "home";
-    $content = "hi from the home page";
-
-    return $app->render('home.html',array(
-                                        "page_title"=>$title,
-                                        "content"=>$content
-    ));
-});
-
-$app->route('/<string>',function($app,$title){    
-    $content = "hi from the $title page";
-
-    return $app->render('home.html',array(
-                                        "page_title"=>$title,
-                                        "content"=>$content
-    ));
-});
-
+$app->templatePaths = [__DIR__ . '/templates'];
 $app->run();

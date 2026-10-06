@@ -1,185 +1,142 @@
 Ham
 ===
 
-*Now includes tests!*
+A PHP microframework for use with whatever you like, inspired by Flask: a router
+with a succinct syntax, mountable sub-applications, plain-PHP templates and a
+small cache. PHP already provides sessions, cookies and templating, so Ham leaves
+those to the language and only smooths over the parts that are awkward to use
+directly.
+
+Requires PHP 8.5. [APCu](https://pecl.php.net/package/APCu) backs the default
+cache when installed.
+
+```sh
+composer require radiosilence/ham
+```
 
 
-PHP Microframework for use with whatever you like. Basically just a fast router
-with nice syntax, and a cache singleton. Will add more things as I go, like
-perhaps an extension system, autoloader and some other stuff to make developing
-in PHP less irritating than it currently is.
-
-Routes are converted to regex and cached so this process does not need to
-happen every request. Furthermore, the resolved route for a given URI is also
-cached so on most requests thare is no regex matching involved.
-
-There is also now the ability to mount apps on routes within apps, so one could
-make an administrator app, then mount it on the main app at /admin.
-
-PHP presents an interesting challenge because due to it's architecture,
-everything has to be re-done each request, which is why I'm leveraging caching
-with tiny TTLs to share the results of operations like route resolution
-between requests.
-
-Note: PHP already has many of the features that many microframeworks have, such
-as session handling, cookies, and templating. An aim of this project is to
-encourage the use of native functionality where possible or where it is good,
-but make some parts nicer or extend upon them to bring it up to scratch with
-the way I like things.
-
-Note: For maximum speed gains, use the XCache extension because that supports
-caching of closures, unlike APC.
-
-
-Goals
------
-
- * Make pretty much anything I/O related cached with XCache/APC
-(whichever is installed) in order to prevent excessive disk usage or path 
-searching on lots of requests.
- * Provide a succinct syntax that means less magic and less code to read
- through and learn, without compromising speed or code length, by using native
- PHP methods and features.
- * Promote a simple, flat way of building applications that don't need
- massive levels of abstraction.
- * Encourage use of excellent third-party libraries such as Doctrine to prevent
- developers writing convoluted, unmaintainable code that people like me have to
- pick up and spend hours poring over just to get an idea of what on earth is
- going on.
- * Define and document development patterns that allow for new developers to
- get up to speed quickly and write new code that isn't hacky.
-
-
-Inspired entirely by Flask.
-
-
-Requirements
-------------
-
-* PHP 5.3
-* XCache (preferred) or APC (still optional)
-* Requests pointed at file that you put the app in (eg.
-  index.php).
-
-
-Hello World
+Hello world
 -----------
 
 ```php
-require '../ham/ham.php';
+use Ham\App;
 
-$app = new Ham('example');
+require 'vendor/autoload.php';
 
-$app->route('/', function($app) {
-    return 'Hello, world!';
-});
-
-$app->run();
+new App('example')
+    ->route('/', fn () => 'Hello, world!')
+    ->run();
 ```
 
+Point every request at this file, for example with `php -S localhost:8000 index.php`
+during development or `try_files $uri /index.php` under nginx.
 
-More Interesting Example
-------------------------
+
+Routing
+-------
+
+Handlers receive the app followed by any captures from the pattern. Captures are
+cast to their placeholder's type, so handlers can declare typed parameters.
+
+| Placeholder | Matches                          | Passed as |
+|-------------|----------------------------------|-----------|
+| `<int>`     | `-?\d+`                          | `int`     |
+| `<float>`   | `-?\d+(\.\d+)?`                  | `float`   |
+| `<string>`  | letters, digits, `_` and `-`     | `string`  |
+| `<path>`    | as `<string>`, plus `.` and `/`  | `string`  |
 
 ```php
-require '../ham/ham.php';
-
-$app = new Ham('example');
-$app->config_from_file('settings.php');
-
-$app->route('/pork', function($app) {
-    return "Delicious pork.";
-});
-
-$hello = function($app, $name='world') {
-    return $app->render('hello.html', array(
-        'name' => $name
-    ));
-};
-$app->route('/hello/<string>', $hello);
-$app->route('/', $hello);
-
-$app->run();
+$app->route('/add/<int>/<int>', fn (App $app, int $a, int $b) => $a + $b);
+$app->route('/submit', fn () => 'Thanks.', ['POST']);
 ```
 
-Multiple apps mounted on routes!
---------------------------------
+Routes answer `GET` unless given a list of methods. A path that matches a route
+under a different method returns 405; an unmatched path returns 404, which
+`notFound()` can replace:
 
 ```php
-require '../ham/ham.php';
-
-$beans = new Ham('beans');
-
-$beans->route('/', function($app) {
-    return "Beans home.";
-});
-
-$beans->route('/baked', function($app) {
-    return "Yum!";
-});
-
-$app = new Ham('example');
-$app->route('/', function($app) {
-    return "App home.";
-});
-$app->route('/beans', $beans);
-$app->run();
+$app->notFound(fn (App $app) => 'Burnt bacon.');
 ```
 
-Custom Error Handeling
---------------------------------
+`abort($code, $message)` and `json($data, $code)` set the status and return a
+body, so return their result from the handler.
+
+Patterns are compiled to regular expressions when registered. Earlier versions
+cached compiled routes and route lookups in XCache or APC between requests; with
+OPcache that costs more than matching a handful of expressions, so it was removed.
+
+
+Mounting apps
+-------------
+
+An app mounted on a route dispatches everything beneath that prefix, and can
+reach the app it is mounted on through `$app->parent`. This allows building an
+admin app separately and mounting it at `/admin`.
 
 ```php
-require 'ham/ham.php';
+$beans = new App('beans')
+    ->route('/', fn () => 'Beans home.')
+    ->route('/baked', fn () => 'Yum!');
 
-$beans = new Ham('beans');
-
-$beans->route('/', function($app) {
-    return "Beans home.";
-});
-
-$app->onError(function(){
-    return "Burnt Bacon.";
-}, "Error message can go here.");
-
-$app->run();
+new App('example')
+    ->route('/', fn () => 'App home.')
+    ->route('/beans', $beans)
+    ->run();
 ```
 
-Output: 
-
-#### /beans/
-
-Beans home.
-
-#### /beans/baked
-
-Yum!
-
-#### /
-
-App home.
-
-#### /definitely_not_the_page_you_were_looking_for
-
-Burnt Bacon.
-
-Have a gander at the example application for more details.
+If the application is served from a subdirectory, set `$app->basePath` to it.
 
 
-To-Dos
-------
+Templates
+---------
 
-* Nice logging class and logging support with error levels, e-mailing, etc.
-* Sub-application mounting (ala Flask "Blueprints").
-* Sanitisation solution.
-* CSRF tokens
-* Extension API
+Templates are PHP files found in `$app->templatePaths`. `partial()` renders one
+with the given data extracted into scope; `render()` additionally wraps the
+result in `$app->layout`, which receives it as `$content`.
+
+```php
+$app->route('/hello/<string>', fn (App $app, string $name) => $app->render('hello.php', ['name' => $name]));
+```
+
+Pass `layout: false` to skip the layout for one render, or set
+`$app->layout = false` to disable it everywhere. To use another template engine,
+subclass `App` and override `render()`; see `examples/twig_example`.
 
 
-Extension Ideas
----------------
+Configuration
+-------------
 
-* Form generation (3rd-party? Phorms)
-* ORM integration (most likely Doctrine)
-* Auth module (using scrypt or something)
-* Admin extension
+Configuration files return an array, which is merged into `$app->config`.
+`configFromEnv()` reads the file path from an environment variable, so each
+deployment can supply its own.
+
+```php
+$app->configFromFile(__DIR__ . '/settings.php');
+$app->configFromEnv('HAM_SETTINGS');
+```
+
+
+Cache and logging
+-----------------
+
+`$app->cache` is an `ApcuCache` namespaced by the app's name when APCu is
+enabled, and a `NullCache` that stores nothing otherwise. Pass any `Ham\Cache`
+implementation to the constructor to use another backend.
+
+Logging is opt-in: pass a `Ham\Logger`, such as `FileLogger`, which appends
+tab-separated lines to a file.
+
+```php
+$app = new App('example', logger: new FileLogger(__DIR__ . '/app.log'));
+$app->logger?->info('Started.');
+```
+
+
+Development
+-----------
+
+```sh
+composer install
+composer analyse   # PHPStan at max level
+composer test      # PHPUnit
+```

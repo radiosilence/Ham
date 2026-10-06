@@ -1,32 +1,27 @@
 <?php
 
-require '../../ham/ham.php';
+declare(strict_types=1);
 
-$beans = new Ham('beans');
-$beans->route('/', function($app) {
-    return "Beans home.";
-});
-$beans->route('/baked', function($app) {
-    return "Yum!";
-});
+use Ham\App;
+use Ham\FileLogger;
 
-$app = new Ham('example', false, 'logs/' . date('Y-m-d') . '.txt');
+require __DIR__ . '/../../vendor/autoload.php';
 
-$app->route('/', function($app) {
-    $app->logger->log('Home requested');
+$beans = new App('beans')
+    ->route('/', fn () => 'Beans home.')
+    ->route('/baked', fn () => 'Yum!');
 
-    return "Home.";
-});
+$app = new App('example', logger: new FileLogger(__DIR__ . '/app.log'))
+    ->configFromFile(__DIR__ . '/settings.php')
+    ->configFromFile(__DIR__ . '/settings_local.php')
+    ->route('/', function (App $app) {
+        $app->logger?->log('Home requested');
 
-$app->route('/', function($app) {
-    return "Home.";
-});
+        return 'Home.';
+    })
+    ->route('/hello/<string>', fn (App $app, string $name) => $app->render('hello.php', ['name' => $name]))
+    ->route('/beans', $beans)
+    ->notFound(fn () => 'Burnt bacon.');
 
-$app->route('/hello/<string>', function($app, $name) {
-    return $app->render('hello.html', array(
-        'name' => $name
-    ));
-});
-
-$app->route('/beans', $beans);
+$app->templatePaths = [__DIR__ . '/templates'];
 $app->run();

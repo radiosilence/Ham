@@ -1,6 +1,6 @@
 <?php
 
-$DOMAIN_NAME = 'localhost';
-$APP_URI = '';
-
-$DOCTRINE_DB_URI = 'blaah';
+return [
+    'DOMAIN_NAME' => 'localhost',
+    'DOCTRINE_DB_URI' => 'blaah',
+];
